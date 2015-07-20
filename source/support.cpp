@@ -97,7 +97,7 @@ const char *FormatBuffer (const char *format, ...)
 
 bool IsAlive (edict_t *ent)
 {
-   if (IsEntityNull (ent))
+   if (IsNullEntity (ent))
       return false;
 
    return ent->v.deadflag == DEAD_NO && ent->v.health > 0 && ent->v.movetype != MOVETYPE_NOCLIP;
@@ -124,7 +124,7 @@ bool IsInViewCone (const Vector &origin, edict_t *ent)
 
 bool IsVisible (const Vector &origin, edict_t *ent)
 {
-   if (IsEntityNull (ent))
+   if (IsNullEntity (ent))
       return false;
 
    TraceResult tr;
@@ -141,7 +141,7 @@ Vector GetEntityOrigin (edict_t *ent)
    // this expanded function returns the vector origin of a bounded entity, assuming that any
    // entity that has a bounding box has its center at the center of the bounding box itself.
 
-   if (IsEntityNull (ent))
+   if (IsNullEntity (ent))
       return nullvec;
 
    if (ent->v.origin == nullvec)
@@ -227,7 +227,7 @@ void DecalTrace (entvars_t *pev, TraceResult *trace, int logotypeIndex)
    if (trace->flFraction == 1.0)
       return;
 
-   if (!IsEntityNull (trace->pHit))
+   if (!IsNullEntity (trace->pHit))
    {
       if (trace->pHit->v.solid == SOLID_BSP || trace->pHit->v.movetype == MOVETYPE_PUSHSTEP)
          entityIndex = IndexOfEntity (trace->pHit);
@@ -295,10 +295,6 @@ void FreeLibraryMemory (void)
       delete[] locale->m_langTab[it].translated;
    }
    locale->m_langTab.RemoveAll ();
-
-
-   delete [] g_experienceData;
-   g_experienceData = NULL;
 }
 
 void FakeClientCommand (edict_t *fakeClient, const char *format, ...)
@@ -313,7 +309,7 @@ void FakeClientCommand (edict_t *fakeClient, const char *format, ...)
    static char command[256];
    int stop, i, stringIndex = 0;
 
-   if (IsEntityNull (fakeClient))
+   if (IsNullEntity (fakeClient))
       return; // reliability check
 
    // concatenate all the arguments in one string
@@ -610,127 +606,6 @@ void DrawArrow (edict_t *ent, const Vector &start, const Vector &end, int width,
    MESSAGE_END ();
 }
 
-void UpdateGlobalExperienceData (void)
-{
-   // this function called after each end of the round to update knowledge about most dangerous waypoints for each team.
-
-   // no waypoints, no experience used or waypoints edited or being edited?
-   if (g_numWaypoints < 1 || g_waypointsChanged)
-      return; // no action
-
-   unsigned short maxDamage; // maximum damage
-   unsigned short actDamage; // actual damage
-
-   int bestIndex; // best index to store
-   bool recalcKills = false;
-
-   // get the most dangerous waypoint for this position for terrorist team
-   for (int i = 0; i < g_numWaypoints; i++)
-   {
-      maxDamage = 0;
-      bestIndex = -1;
-
-      for (int j = 0; j < g_numWaypoints; j++)
-      {
-         if (i == j)
-            continue;
-
-         actDamage = (g_experienceData + (i * g_numWaypoints) + j)->team0Damage;
-
-         if (actDamage > maxDamage)
-         {
-            maxDamage = actDamage;
-            bestIndex = j;
-         }
-      }
-
-      if (maxDamage > MAX_DAMAGE_VALUE)
-         recalcKills = true;
-
-      (g_experienceData + (i * g_numWaypoints) + i)->team0DangerIndex = static_cast <short> (bestIndex);
-   }
-
-   // get the most dangerous waypoint for this position for counter-terrorist team
-   for (int i = 0; i < g_numWaypoints; i++)
-   {
-      maxDamage = 0;
-      bestIndex = -1;
-
-      for (int j = 0; j < g_numWaypoints; j++)
-      {
-         if (i == j)
-            continue;
-
-         actDamage = (g_experienceData + (i * g_numWaypoints) + j)->team1Damage;
-
-         if (actDamage > maxDamage)
-         {
-            maxDamage = actDamage;
-            bestIndex = j;
-         }
-      }
-
-      if (maxDamage > MAX_DAMAGE_VALUE)
-         recalcKills = true;
-
-     (g_experienceData + (i * g_numWaypoints) + i)->team1DangerIndex = static_cast <short> (bestIndex);
-   }
-
-   // adjust values if overflow is about to happen
-   if (recalcKills)
-   {
-      for (int i = 0; i < g_numWaypoints; i++)
-      {
-         for (int j = 0; j < g_numWaypoints; j++)
-         {
-            if (i == j)
-               continue;
-
-            int clip = (g_experienceData + (i * g_numWaypoints) + j)->team0Damage;
-            clip -= static_cast <int> (MAX_DAMAGE_VALUE * 0.5);
-
-            if (clip < 0)
-               clip = 0;
-
-            (g_experienceData + (i * g_numWaypoints) + j)->team0Damage = static_cast <unsigned short> (clip);
-
-            clip = (g_experienceData + (i * g_numWaypoints) + j)->team1Damage;
-            clip -= static_cast <int> (MAX_DAMAGE_VALUE * 0.5);
-
-            if (clip < 0)
-               clip = 0;
-
-            (g_experienceData + (i * g_numWaypoints) + j)->team1Damage = static_cast <unsigned short> (clip);
-         }
-      }
-   }
-   g_highestKills++;
-
-   int clip = g_highestDamageT - static_cast <int> (MAX_DAMAGE_VALUE * 0.5);
-
-   if (clip < 1)
-      clip = 1;
-
-   g_highestDamageT = clip;
-
-   clip = (int) g_highestDamageCT - static_cast <int> (MAX_DAMAGE_VALUE * 0.5);
-
-   if (clip < 1)
-      clip = 1;
-
-   g_highestDamageCT = clip;
-
-   if (g_highestKills == MAX_KILL_HISTORY)
-   {
-      for (int i = 0; i < g_numWaypoints; i++)
-      {
-         (g_experienceData + (i * g_numWaypoints) + i)->team0Damage /= static_cast <unsigned short> (GetMaxClients () * 0.5);
-         (g_experienceData + (i * g_numWaypoints) + i)->team1Damage /= static_cast <unsigned short> (GetMaxClients () * 0.5);
-      }
-      g_highestKills = 1;
-   }
-}
-
 void RoundInit (void)
 {
    // this is called at the start of each round
@@ -765,7 +640,7 @@ void RoundInit (void)
    for (int i = 0; i < TASK_MAX; i++)
       g_taskFilters[i].time = 0.0f;
 
-   UpdateGlobalExperienceData (); // update experience data on round start
+   experience.UpdateGlobalKnowledge (); // update experience data on round start
 
    // calculate the round mid/end in world time
    g_timeRoundStart = GetWorldTime () + mp_freezetime.GetFloat ();
@@ -792,7 +667,7 @@ int GetWeaponPenetrationPower (int id)
 
 bool IsValidPlayer (edict_t *ent)
 {
-   if (IsEntityNull (ent))
+   if (IsNullEntity (ent))
       return false;
 
    if (ent->v.flags & FL_PROXY)
@@ -817,7 +692,7 @@ bool IsPlayerVIP (edict_t *ent)
 
 bool IsValidBot (edict_t *ent)
 {
-   if (botMgr->GetBot (ent) != NULL || (!IsEntityNull (ent) && (ent->v.flags & FL_FAKECLIENT)))
+   if (botMgr->GetBot (ent) != NULL || (!IsNullEntity (ent) && (ent->v.flags & FL_FAKECLIENT)))
       return true;
 
    return false;
@@ -896,7 +771,7 @@ void ClientPrint (edict_t *ent, int dest, const char *format, ...)
    vsprintf (string, locale->TranslateInput (format), ap);
    va_end (ap);
 
-   if (IsEntityNull (ent) || ent == g_hostEntity)
+   if (IsNullEntity (ent) || ent == g_hostEntity)
    {
 		ServerPrint (string);
       return;
@@ -1247,7 +1122,7 @@ bool FindNearestPlayer (void **pvHolder, edict_t *to, float searchDistance, bool
       }
    }
 
-   if (IsEntityNull (survive))
+   if (IsNullEntity (survive))
       return false; // nothing found
 
    // fill the holder
@@ -1264,7 +1139,7 @@ void SoundAttachToClients (edict_t *ent, const char *sample, float volume)
    // this function called by the sound hooking code (in emit_sound) enters the played sound into
    // the array associated with the entity
 
-   if (IsEntityNull (ent) || IsNullString (sample))
+   if (IsNullEntity (ent) || IsNullString (sample))
       return; // reliability check
 
    const Vector &origin = GetEntityOrigin (ent);

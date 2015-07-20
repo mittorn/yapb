@@ -171,6 +171,25 @@ public:
 
 #include <corelib.h>
 
+// wayponit auto-downloader
+enum WaypointDownloadError
+{
+   WDE_SOCKET_ERROR,
+   WDE_CONNECT_ERROR,
+   WDE_NOTFOUND_ERROR,
+   WDE_NOERROR
+};
+
+// for convars
+enum VarType
+{
+   VT_NORMAL = 0,
+   VT_READONLY,
+   VT_PASSWORD,
+   VT_NOSERVER,
+   VT_NOREGISTER
+};
+
 // defines bots tasks
 enum TaskID
 {
@@ -603,6 +622,12 @@ const int WEAPON_SECONDARY = ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) | (1 << W
 // maximum collide moves
 const int MAX_COLLIDE_MOVES = 4;
 
+// maximum damage value for experience
+const uint16 MAX_EXPERIENCE_VALUE = 2048;
+
+// maximum kill history for experience
+const uint16 MAX_KHIST_VALUE = 16;
+
 // this structure links waypoints returned from pathfinder
 struct PathNode
 {
@@ -706,26 +731,6 @@ struct Client
 
    float hearingDistance; // distance this sound is heared
    float timeSoundLasting; // time sound is played/heared
-};
-
-// experience data hold in memory while playing
-struct Experience
-{
-   unsigned short team0Damage;
-   unsigned short team1Damage;
-   signed short team0DangerIndex;
-   signed short team1DangerIndex;
-   signed short team0Value;
-   signed short team1Value;
-};
-
-// experience data when saving/loading
-struct ExperienceSave
-{
-   unsigned char team0Damage;
-   unsigned char team1Damage;
-   signed char team0Value;
-   signed char team1Value;
 };
 
 // bot creation tab
@@ -1027,8 +1032,6 @@ private:
    void CheckCloseAvoidance (const Vector &dirNormal);
 
    void GetCampDirection (Vector *dest);
-   void CollectGoalExperience (int damage, int team);
-   void CollectExperienceData (edict_t *attacker, int damage);
    int GetMessageQueue (void);
    bool GoalIsValid (void);
    bool HeadTowardWaypoint (void);
@@ -1472,7 +1475,6 @@ public:
   ~Waypoint (void);
 
    void Init (void);
-   void InitExperienceTab (void);
    void InitVisibilityTab (void);
 
    void InitTypes (void);
@@ -1539,13 +1541,79 @@ public:
    String CheckSubfolderFile (void);
 };
 
-// wayponit auto-downloader
-enum WaypointDownloadError
+class BotExperience : public Singleton <BotExperience>
 {
-   WDE_SOCKET_ERROR,
-   WDE_CONNECT_ERROR,
-   WDE_NOTFOUND_ERROR,
-   WDE_NOERROR
+   friend class Bot;
+
+private:
+   struct ExpData
+   {
+      uint16 damage[TEAM_SPEC];
+      int16 danger[TEAM_SPEC];
+      int16 value[TEAM_SPEC];
+   };
+   ExpData *m_data;
+   uint16 m_history;
+
+   int m_maxWaypoints;
+
+public:
+   inline BotExperience (void)
+   {
+      extern int g_numWaypoints;
+      m_maxWaypoints = m_maxWaypoints;
+   }
+
+   inline ~BotExperience (void)
+   {
+      if (m_data != NULL)
+         delete[] m_data;
+
+      m_data = NULL;
+   }
+
+public:
+   void UpdateGlobalKnowledge (void);
+   void CollectDamage (Bot *victim, edict_t *attacker, int health, int damage, float &vicVal, float &attVal);
+   void CollectValidDamage (int index, int team);
+
+   void Load (void);
+   void Unload (void);
+
+   void DrawText (int index, char storage[4096], int &length);
+   void DrawLines (int nearest, Path *path);
+   void CollectGoal (int health, int damage, int goal, int prevGoal, int team);
+   void CollectValue (int start, int goal, int health, float goalValue);
+
+   inline uint16 GetDamage (int start, int goal, int team) const
+   {
+      return (m_data + (start * m_maxWaypoints) + goal)->damage[team];
+   }
+
+   inline int16 GetValue (int start, int goal, int team) const
+   {
+      return (m_data + (start  * m_maxWaypoints) + goal)->value[team];
+   }
+
+   inline int16 GetDangerIndex (int start, int goal, int team) const
+   {
+      return (m_data + (start  * m_maxWaypoints) + goal)->danger[team];
+   }
+
+   inline int GetKillHistory (void)
+   {
+      return m_history;
+   }
+
+   inline float GetAStarValue (int point, int team, bool dist)
+   {
+      return static_cast <float> ((m_data + (point  * m_maxWaypoints) + point)->damage[team] + (dist ? m_history : 0));
+   }
+
+private:
+   void SetDamage (int start, int goal, int newValue, int team);
+   void SetValue (int start, int goal, int newValue, int team);
+   void SetDangerIndex (int start, int goal, int newIndex, int team);
 };
 
 class WaypointDownloader
@@ -1557,15 +1625,6 @@ public:
 
    // do actually downloading of waypoint file
    WaypointDownloadError DoDownload (void);
-};
-
-enum VarType
-{
-   VT_NORMAL = 0,
-   VT_READONLY,
-   VT_PASSWORD,
-   VT_NOSERVER,
-   VT_NOREGISTER
 };
 
 class ConVarWrapper : public Singleton <ConVarWrapper>
@@ -1592,6 +1651,7 @@ public:
 #define convars ConVarWrapper::GetObject ()
 #define waypoint Waypoint::GetObject ()
 #define botMgr BotManager::GetObject ()
+#define experience BotExperience::GetReference ()
 
 // simplify access for console variables
 class ConVar

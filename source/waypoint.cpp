@@ -159,7 +159,7 @@ void Waypoint::FindInRadius (Array <int> &radiusHolder, float radius, const Vect
 }
 void Waypoint::Add (int flags, const Vector &waypointOrigin)
 {
-   if (IsEntityNull (g_hostEntity))
+   if (IsNullEntity (g_hostEntity))
       return;
 
    int index = -1, i;
@@ -835,129 +835,6 @@ void Waypoint::CalculateWayzone (int index)
       path->radius = 0;
 }
 
-void Waypoint::SaveExperienceTab (void)
-{
-   ExtensionHeader header;
-
-   if ((g_numWaypoints <= 0) || g_waypointsChanged)
-      return;
-
-   memset (header.header, 0, sizeof (header.header));
-   strcpy (header.header, FH_EXPERIENCE);
-
-   header.fileVersion = FV_EXPERIENCE;
-   header.pointNumber = g_numWaypoints;
-
-   ExperienceSave *experienceSave = new ExperienceSave[g_numWaypoints * g_numWaypoints];
-
-   for (int i = 0; i < g_numWaypoints; i++)
-   {
-      for (int j = 0; j < g_numWaypoints; j++)
-      {
-         (experienceSave + (i * g_numWaypoints) + j)->team0Damage = (g_experienceData + (i * g_numWaypoints) + j)->team0Damage >> 3;
-         (experienceSave + (i * g_numWaypoints) + j)->team1Damage = (g_experienceData + (i * g_numWaypoints) + j)->team1Damage >> 3;
-         (experienceSave + (i * g_numWaypoints) + j)->team0Value = (g_experienceData + (i * g_numWaypoints) + j)->team0Value / 8;
-         (experienceSave + (i * g_numWaypoints) + j)->team1Value = (g_experienceData + (i * g_numWaypoints) + j)->team1Value / 8;
-      }
-   }
-
-   int result = Compressor::Compress (FormatBuffer ("%slearned/%s.exp", GetWaypointDir (), GetMapName ()), (unsigned char *)&header, sizeof (ExtensionHeader), (unsigned char *)experienceSave, g_numWaypoints * g_numWaypoints * sizeof (ExperienceSave));
-
-   delete [] experienceSave;
-
-   if (result == -1)
-   {
-      AddLogEntry (true, LL_ERROR, "Couldn't save experience data");
-      return;
-   }
-}
-
-void Waypoint::InitExperienceTab (void)
-{
-   int i, j;
-
-   delete [] g_experienceData;
-   g_experienceData = NULL;
-
-   if (g_numWaypoints < 1)
-      return;
-
-   g_experienceData = new Experience[g_numWaypoints * g_numWaypoints];
-
-   g_highestDamageCT = 1;
-   g_highestDamageT = 1;
-
-   // initialize table by hand to correct values, and NOT zero it out
-   for (i = 0; i < g_numWaypoints; i++)
-   {
-      for (j = 0; j < g_numWaypoints; j++)
-      {
-         (g_experienceData + (i * g_numWaypoints) + j)->team0DangerIndex = -1;
-         (g_experienceData + (i * g_numWaypoints) + j)->team1DangerIndex = -1;
-         (g_experienceData + (i * g_numWaypoints) + j)->team0Damage = 0;
-         (g_experienceData + (i * g_numWaypoints) + j)->team1Damage = 0;
-         (g_experienceData + (i * g_numWaypoints) + j)->team0Value = 0;
-         (g_experienceData + (i * g_numWaypoints) + j)->team1Value = 0;
-      }
-   }
-   File fp (FormatBuffer ("%slearned/%s.exp", GetWaypointDir (), GetMapName ()), "rb");
-
-   // if file exists, read the experience data from it
-   if (fp.IsValid ())
-   {
-      ExtensionHeader header;
-      memset (&header, 0, sizeof (header));
-
-      if (fp.Read (&header, sizeof (header)) == 0)
-      {
-         AddLogEntry (true, LL_ERROR, "Experience data damaged (unable to read header)");
-
-         fp.Close ();
-         return;
-      }
-      fp.Close ();
-
-      if (strncmp (header.header, FH_EXPERIENCE, strlen (FH_EXPERIENCE)) == 0)
-      {
-         if (header.fileVersion == FV_EXPERIENCE && header.pointNumber == g_numWaypoints)
-         {
-            ExperienceSave *experienceLoad = new ExperienceSave[g_numWaypoints * g_numWaypoints];
-
-            Compressor::Uncompress (FormatBuffer ("%slearned/%s.exp", GetWaypointDir (), GetMapName ()), sizeof (ExtensionHeader), (unsigned char *)experienceLoad, g_numWaypoints * g_numWaypoints * sizeof (ExperienceSave));
-
-            for (i = 0; i < g_numWaypoints; i++)
-            {
-               for (j = 0; j < g_numWaypoints; j++)
-               {
-                  if (i == j)
-                  {
-                     (g_experienceData + (i * g_numWaypoints) + j)->team0Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team0Damage);
-                     (g_experienceData + (i * g_numWaypoints) + j)->team1Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team1Damage);
-
-                     if ((g_experienceData + (i * g_numWaypoints) + j)->team0Damage > g_highestDamageT)
-                        g_highestDamageT = (g_experienceData + (i * g_numWaypoints) + j)->team0Damage;
-       
-                     if ((g_experienceData + (i * g_numWaypoints) + j)->team1Damage > g_highestDamageCT)
-                        g_highestDamageCT = (g_experienceData + (i * g_numWaypoints) + j)->team1Damage;
-                  }
-                  else
-                  {
-                     (g_experienceData + (i * g_numWaypoints) + j)->team0Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team0Damage) << 3;
-                     (g_experienceData + (i * g_numWaypoints) + j)->team1Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team1Damage) << 3;
-                  }
-
-                  (g_experienceData + (i * g_numWaypoints) + j)->team0Value = (signed short) ((experienceLoad + i * (g_numWaypoints) + j)->team0Value) * 8;
-                  (g_experienceData + (i * g_numWaypoints) + j)->team1Value = (signed short) ((experienceLoad + i * (g_numWaypoints) + j)->team1Value) * 8;
-               }
-            }
-            delete [] experienceLoad;
-         }
-         else
-            AddLogEntry (true, LL_ERROR, "Experience data damaged (wrong version, or not for this map)");
-      }
-   }
-}
-
 void Waypoint::SaveVisibilityTab (void)
 {
    if (g_numWaypoints == 0)
@@ -1208,7 +1085,7 @@ bool Waypoint::Load (void)
    m_arrowDisplayTime = 0.0;
 
    InitVisibilityTab ();
-   InitExperienceTab ();
+   experience.Load ();
 
    botMgr->InitQuota ();
 
@@ -1323,7 +1200,7 @@ bool Waypoint::IsNodeReachable (const Vector &src, const Vector &destination)
    // check if we go through a func_illusionary, in which case return false
    TraceHull (src, destination, ignore_monsters, head_hull, g_hostEntity, &tr);
 
-   if (!IsEntityNull (tr.pHit) && strcmp ("func_illusionary", STRING (tr.pHit->v.classname)) == 0)
+   if (!IsNullEntity (tr.pHit) && strcmp ("func_illusionary", STRING (tr.pHit->v.classname)) == 0)
       return false; // don't add pathwaypoints through func_illusionaries
 
    // check if this waypoint is "visible"...
@@ -1511,7 +1388,7 @@ void Waypoint::Think (void)
 {
    // this function executes frame of waypoint operation code.
 
-   if (IsEntityNull (g_hostEntity))
+   if (IsNullEntity (g_hostEntity))
       return; // this function is only valid on listenserver, and in waypoint enabled mode.
 
    float nearestDistance = 99999.0f;
@@ -1741,16 +1618,7 @@ void Waypoint::Think (void)
          DrawLine (g_hostEntity, origin + Vector (squareRoot, -squareRoot, 0), origin + Vector (-squareRoot, squareRoot, 0), 5, 0, 255, 0, 0, 200, 0, 10);
          DrawLine (g_hostEntity, origin + Vector (-squareRoot, -squareRoot, 0), origin + Vector (squareRoot, squareRoot, 0), 5, 0, 255, 0, 0, 200, 0, 10);
       }
-
-      // draw the danger directions
-      if (!g_waypointsChanged)
-      {
-         if ((g_experienceData + (nearestIndex * g_numWaypoints) + nearestIndex)->team0DangerIndex != -1 && GetTeam (g_hostEntity) == TEAM_TF)
-            DrawArrow (g_hostEntity, path->origin, m_paths[(g_experienceData + (nearestIndex * g_numWaypoints) + nearestIndex)->team0DangerIndex]->origin, 15, 0, 255, 0, 0, 200, 0, 10); // draw a red arrow to this index's danger point
-
-         if ((g_experienceData + (nearestIndex * g_numWaypoints) + nearestIndex)->team1DangerIndex != -1 && GetTeam (g_hostEntity) == TEAM_CF)
-            DrawArrow (g_hostEntity, path->origin, m_paths[(g_experienceData + (nearestIndex * g_numWaypoints) + nearestIndex)->team1DangerIndex]->origin, 15, 0, 0, 0, 255, 200, 0, 10); // draw a blue arrow to this index's danger point
-      }
+      experience.DrawLines (nearestIndex, path);
 
       // display some information
       char tempMessage[4096];
@@ -1762,16 +1630,7 @@ void Waypoint::Think (void)
 
 
       // if waypoint is not changed display experience also
-      if (!g_waypointsChanged)
-      {
-         int dangerIndexCT = (g_experienceData + nearestIndex * g_numWaypoints + nearestIndex)->team1DangerIndex;
-         int dangerIndexT = (g_experienceData + nearestIndex * g_numWaypoints + nearestIndex)->team0DangerIndex;
-
-         length += sprintf (&tempMessage[length],
-            "      Experience Info:\n"
-            "      CT: %d / %d\n"
-            "      T: %d / %d\n", dangerIndexCT, dangerIndexCT != -1 ? (g_experienceData + nearestIndex * g_numWaypoints + dangerIndexCT)->team1Damage : 0, dangerIndexT, dangerIndexT != -1 ? (g_experienceData + nearestIndex * g_numWaypoints + dangerIndexT)->team0Damage : 0);
-      }
+      experience.DrawText (nearestIndex, tempMessage, length);
 
       // check if we need to show the cached point index
       if (m_cacheWaypointIndex != -1)
@@ -2234,7 +2093,7 @@ void Waypoint::CreateBasic (void)
    edict_t *ent = NULL;
 
    // first of all, if map contains ladder points, create it
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_ladder")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_ladder")))
    {
       Vector ladderLeft = ent->v.absmin;
       Vector ladderRight = ent->v.absmax;
@@ -2283,7 +2142,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // then terrortist spawnpoints
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_player_deathmatch")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_player_deathmatch")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2292,7 +2151,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // then add ct spawnpoints
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_player_start")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_player_start")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2301,7 +2160,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // then vip spawnpoint
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_vip_start")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_vip_start")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2310,7 +2169,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // hostage rescue zone
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_hostage_rescue")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_hostage_rescue")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2319,7 +2178,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // hostage rescue zone (same as above)
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_hostage_rescue")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_hostage_rescue")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2328,7 +2187,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // bombspot zone
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_bomb_target")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_bomb_target")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2337,7 +2196,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // bombspot zone (same as above)
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_bomb_target")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "info_bomb_target")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2346,7 +2205,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // hostage entities
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "hostage_entity")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "hostage_entity")))
    {
       // if already saved || moving skip it
       if ((ent->v.effects & EF_NODRAW) && (ent->v.speed > 0))
@@ -2359,7 +2218,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // vip rescue (safety) zone
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_vip_safetyzone")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_vip_safetyzone")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2368,7 +2227,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // terrorist escape zone
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_escapezone")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "func_escapezone")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2377,7 +2236,7 @@ void Waypoint::CreateBasic (void)
    }
 
    // weapons on the map ?
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "armoury_entity")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "armoury_entity")))
    {
       Vector origin = GetEntityOrigin (ent);
 
@@ -2436,7 +2295,7 @@ void Waypoint::SetBombPosition (bool shouldReset)
 
    edict_t *ent = NULL;
 
-   while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
+   while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
    {
       if (strcmp (STRING (ent->v.model) + 9, "c4.mdl") == 0)
       {
@@ -2550,7 +2409,6 @@ void WaypointDownloader::FreeSocket (int sock)
       close (sock);
 #endif
 }
-
 
 WaypointDownloadError WaypointDownloader::DoDownload (void)
 {
@@ -2685,3 +2543,374 @@ WaypointDownloadError WaypointDownloader::DoDownload (void)
 
    return WDE_NOERROR;
 }
+
+void BotExperience::SetDamage (int start, int goal, int newValue, int team)
+{
+   // get the pointer to experience data for faster access
+   ExpData *data = (m_data + (start * g_numWaypoints) + goal);
+
+   data->damage[team] = static_cast <uint16> (newValue); // set the data
+
+   // ensure data in valid range
+   if (data->damage[team] > MAX_EXPERIENCE_VALUE)
+      data->damage[team] = MAX_EXPERIENCE_VALUE;
+}
+
+void BotExperience::SetValue (int start, int goal, int newValue, int team)
+{
+   // get the pointer to experience data for faster access
+   ExpData *data = (m_data + (start * g_numWaypoints) + goal);
+
+   // clamp data in valid range
+   if (data->value[team] < -MAX_EXPERIENCE_VALUE)
+      data->value[team] = -MAX_EXPERIENCE_VALUE;
+   else if (data->value[team] > MAX_EXPERIENCE_VALUE)
+      data->value[team] = MAX_EXPERIENCE_VALUE;
+
+   data->value[team] = static_cast <int16> (newValue); // set the data
+}
+
+void BotExperience::SetDangerIndex (int start, int goal, int newIndex, int team)
+{
+   // get the pointer to experience data for faster access
+   ExpData *data = (m_data + (start * g_numWaypoints) + goal);
+
+   data->danger[team] = static_cast <int16> (newIndex); // set the data
+}
+
+void BotExperience::UpdateGlobalKnowledge (void)
+{
+   // experience cannot be used when we have no points or waypoints are changed
+   if (g_numWaypoints < 1 || g_waypointsChanged)
+      return;
+
+   bool recalculate = false; // do we need to recalculate if we overflowed
+
+   // iterate through both teams
+   for (int t = 0; t < TEAM_SPEC; t++)
+   {
+      int index = -1; // best index
+
+      // find the most dangerous waypoint
+      for (int i = 0; i < g_numWaypoints; i++)
+      {
+         float max = 0;
+
+         // update the experience index
+         for (int j = 0; j < g_numWaypoints; j++)
+         {
+            if (i == j)
+               continue; // skip self
+
+            float act = GetDamage (i, j, t); // get the damager for current point
+
+            // update the best index if we got higher damage
+            if (act > max)
+            {
+
+               File f ("exp.txt", "wt");
+               f.Printf ("data recorded: i=%d,j=%d,max=%.2f,act=%.2f\n", i, j, max, act);
+               f.Close ();
+
+               max = act;
+               index = j;
+            }
+         }
+
+         // recalculate overflowed stuff
+         if (max > MAX_EXPERIENCE_VALUE)
+            recalculate = true;
+
+         SetDangerIndex (i, i, index, t);
+      }
+   }
+
+   // check if we exceed kill history
+   if (++m_history == MAX_KHIST_VALUE)
+   {
+      for (int t = 0; t < TEAM_SPEC; t++)
+      {
+         for (int i = 0; i < g_numWaypoints; i++)
+            SetDamage (i, i, static_cast <int> (GetDamage (i, i, t) / (GetMaxClients () * 0.5f)), t);
+      }
+      m_history = 1;
+   }
+
+   if (!recalculate)
+      return; // do not recalculate anything
+
+   for (int t = 0; t < TEAM_SPEC; t++)
+   {
+      for (int i = 0; i < g_numWaypoints; i++)
+      {
+         for (int j = 0; j < g_numWaypoints; j++)
+         {
+            if (i == j)
+               continue; // skip self
+
+            // get the clip
+            int clip = static_cast <int> (GetDamage (i, j, t) - MAX_EXPERIENCE_VALUE * 0.5f);
+
+            // we cannot have negative values
+            if (clip < 0)
+               clip = 0;
+
+            SetDamage (i, j, clip, t);
+         }
+      }
+   }
+}
+
+void BotExperience::CollectGoal (int health, int damage, int goal, int prevGoal, int team)
+{
+   if (g_numWaypoints < 1 || g_waypointsChanged || prevGoal < 0 || goal < 0)
+      return; // something went wrong
+
+   // only rate goal waypoint if bot died because of the damage
+   if (health - damage > 0)
+      return;
+
+   ServerPrint ("Collecting Goal! %d-%d (1)", health, damage);
+
+   SetValue (goal, prevGoal, GetValue (goal, prevGoal, team) - health / 20, team);
+}
+
+void BotExperience::CollectDamage (Bot *victim, edict_t *attacker, int health, int damage, float &vicVal, float &attVal)
+{
+   ServerPrint ("Collecting Damage! %d@%d (1)", health, damage);
+
+   if (victim == NULL || !IsValidPlayer (attacker) || damage < 15)
+      return;
+
+   int teamOfVictim = victim->m_team;
+
+   if (teamOfVictim == GetTeam (attacker))
+      return;
+
+   attVal -= static_cast <float> (damage);
+
+   if (IsValidBot (attacker))
+      vicVal += static_cast <float> (damage);
+
+
+   ServerPrint ("Collecting Damage! %d-%d (2)", health, damage);
+
+   int indices[2] =
+   {
+      waypoint->FindNearest (attacker->v.origin),
+      waypoint->FindNearest (victim->pev->origin)
+   };
+
+   // only record data if damage above 20 health
+   if (health > 20)
+      SetDamage (indices[1], indices[1], GetValue (indices[1], indices[1], teamOfVictim) + 1, teamOfVictim);
+
+   SetDamage (indices[1], indices[0], GetDamage (indices[1], indices[0], teamOfVictim) + damage / (IsValidBot (attacker) ? 10 : 7), teamOfVictim);
+}
+
+void BotExperience::CollectValue (int start, int goal, int health, float goalValue)
+{
+   for (int t = 0; t < TEAM_SPEC; t++)
+      SetValue (start, goal, GetValue (start, goal, t) + static_cast <int> (health * 0.5f + goalValue * 0.5f), t);
+}
+
+void BotExperience::Load (void)
+{
+   if (m_data != NULL)
+      delete[] m_data;
+
+   m_data = NULL;
+
+   if (g_numWaypoints < 1)
+      return;
+
+   m_data = new ExpData[g_numWaypoints * g_numWaypoints];
+
+   if (m_data == NULL)
+      TerminateOnMalloc ();
+
+   // initialize table by hand to correct values, and NOT zero it out
+   for (int t = 0; t < TEAM_SPEC; t++)
+   {
+      for (int i = 0; i < g_numWaypoints; i++)
+      {
+         for (int j = 0; j < g_numWaypoints; j++)
+         {
+            (m_data + (i * g_numWaypoints) + j)->danger[t] = -1;
+            (m_data + (i * g_numWaypoints) + j)->damage[t] = 0;
+            (m_data + (i * g_numWaypoints) + j)->value[t] = 0;
+         }
+      }
+   }
+}
+
+void BotExperience::Unload (void)
+{
+
+}
+
+void BotExperience::DrawText (int index, char storage[4096], int &length)
+{
+   if (g_waypointsChanged)
+      return;
+
+   // if waypoint is not changed display experience also
+   int dangerIndexCT = GetDangerIndex (index, index, TEAM_CF);
+   int dangerIndexT = GetDangerIndex (index, index, TEAM_TF);
+
+   length += sprintf (&storage[length],
+      "      Experience Info:\n"
+      "      CT: %d / %d / %d\n"
+      "      T: %d / %d / %d\n", dangerIndexCT, dangerIndexCT != -1 ? GetDamage (index, dangerIndexCT, TEAM_CF) : 0, dangerIndexCT != -1 ? GetValue (index, dangerIndexCT, TEAM_CF) : 0, dangerIndexT, dangerIndexT != -1 ? GetDamage (index, dangerIndexT, TEAM_TF) : 0, dangerIndexCT != -1 ? GetDamage (index, dangerIndexCT, TEAM_TF) : 0);
+}
+
+
+void BotExperience::DrawLines (int nearest, Path *path)
+{
+   if (g_waypointsChanged || IsNullEntity (g_hostEntity))
+      return;
+
+   for (int t = 0; t < TEAM_SPEC; t++)
+   {
+      int index = GetDangerIndex (nearest, nearest, t);
+
+      if (index != -1)
+         DrawLine (g_hostEntity, path->origin, waypoint->GetPath (index)->origin, t == TEAM_CF ? 0 : 255, 0, t == TEAM_CF ? 255 : 0, 200, 15, 0, 0, 10); // draw a arrow to this index's danger point
+   }
+}
+
+void BotExperience::CollectValidDamage (int index, int team)
+{
+   SetDamage (index, index, GetDamage (index, index, team) + 100, team);
+
+   Path *path = waypoint->GetPath (index);
+
+   // affect nearby connected with victim waypoints
+   for (int i = 0; i < MAX_PATH_INDEX; i++)
+   {
+      if (path->index[i] > -1 && path->index[i] < g_numWaypoints)
+         SetValue (path->index[i], path->index[i], GetValue (path->index[i], path->index[i], team) + 2, team);
+   }
+}
+
+/*
+void Waypoint::SaveExperienceTab (void)
+{
+ExtensionHeader header;
+
+if (g_numWaypoints <= 0 || g_waypointsChanged)
+return;
+
+memset (header.header, 0, sizeof (header.header));
+strcpy (header.header, FH_EXPERIENCE);
+
+header.fileVersion = FV_EXPERIENCE;
+header.pointNumber = g_numWaypoints;
+
+ExperienceSaver *experienceSave = new ExperienceSaver[g_numWaypoints * g_numWaypoints];
+
+if (experienceSave == null)
+TerminateOnMalloc ();
+
+for (int i = 0; i < g_numWaypoints; i++)
+{
+for (int j = 0; j < g_numWaypoints; j++)
+{
+(experienceSave + (i * g_numWaypoints) + j)->team0Damage = (g_experienceData + (i * g_numWaypoints) + j)->team0Damage >> 3;
+(experienceSave + (i * g_numWaypoints) + j)->team1Damage = (g_experienceData + (i * g_numWaypoints) + j)->team1Damage >> 3;
+
+(experienceSave + (i * g_numWaypoints) + j)->team0Value = static_cast <signed char> ((g_experienceData + (i * g_numWaypoints) + j)->team0Value / 8);
+(experienceSave + (i * g_numWaypoints) + j)->team1Value = static_cast <signed char> ((g_experienceData + (i * g_numWaypoints) + j)->team1Value / 8);
+}
+}
+
+int result = Compressor::Compress (FormatBuffer ("%sdata/%s.exp", GetWaypointDir (), GetMapName ()), (uint8_t *)&header, sizeof (ExtensionHeader), (uint8_t *)experienceSave, g_numWaypoints * g_numWaypoints * sizeof (ExperienceSaver));
+
+delete [] experienceSave;
+
+if (result == -1)
+{
+AddLogEntry (true, LOG_ERROR, "Couldn't save experience data");
+return;
+}
+}
+
+void Waypoint::InitExperienceTab (void)
+{
+ExtensionHeader header;
+int i, j;
+
+if (g_experienceData)
+delete [] g_experienceData;
+
+g_experienceData = null;
+
+if (g_numWaypoints < 1)
+return;
+
+g_experienceData = new Experience[g_numWaypoints * g_numWaypoints];
+
+if (g_experienceData == null)
+TerminateOnMalloc ();
+
+// initialize table by hand to correct values, and NOT zero it out
+for (i = 0; i < g_numWaypoints; i++)
+{
+for (j = 0; j < g_numWaypoints; j++)
+{
+(g_experienceData + (i * g_numWaypoints) + j)->team0DangerIndex = -1;
+(g_experienceData + (i * g_numWaypoints) + j)->team1DangerIndex = -1;
+(g_experienceData + (i * g_numWaypoints) + j)->team0Damage = 0;
+(g_experienceData + (i * g_numWaypoints) + j)->team1Damage = 0;
+(g_experienceData + (i * g_numWaypoints) + j)->team0Value = 0;
+(g_experienceData + (i * g_numWaypoints) + j)->team1Value = 0;
+}
+}
+File fp (FormatBuffer ("%sdata/%s.exp", GetWaypointDir (), GetMapName ()), "rb");
+
+// if file exists, read the experience data from it
+if (fp.IsValid ())
+{
+fp.Read (&header, sizeof (ExtensionHeader));
+fp.Close ();
+
+if (strncmp (header.header, FH_EXPERIENCE, strlen (FH_EXPERIENCE)) == 0)
+{
+if (header.fileVersion == FV_EXPERIENCE && header.pointNumber == g_numWaypoints)
+{
+ExperienceSaver *experienceLoad = new ExperienceSaver[g_numWaypoints * g_numWaypoints];
+
+if (experienceLoad == null)
+{
+AddLogEntry (true, LOG_ERROR, "Couldn't allocate memory for experience data");
+return;
+}
+
+Compressor::Uncompress (FormatBuffer ("%sdata/%s.exp", GetWaypointDir (), GetMapName ()), sizeof (ExtensionHeader), (uint8_t *)experienceLoad, g_numWaypoints * g_numWaypoints * sizeof (ExperienceSaver));
+
+for (i = 0; i < g_numWaypoints; i++)
+{
+for (j = 0; j < g_numWaypoints; j++)
+{
+if (i == j)
+{
+(g_experienceData + (i * g_numWaypoints) + j)->team0Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team0Damage);
+(g_experienceData + (i * g_numWaypoints) + j)->team1Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team1Damage);
+}
+else
+{
+(g_experienceData + (i * g_numWaypoints) + j)->team0Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team0Damage) << 3;
+(g_experienceData + (i * g_numWaypoints) + j)->team1Damage = (unsigned short) ((experienceLoad + (i * g_numWaypoints) + j)->team1Damage) << 3;
+}
+
+(g_experienceData + (i * g_numWaypoints) + j)->team0Value = (signed short) ((experienceLoad + i * (g_numWaypoints) + j)->team0Value) * 8;
+(g_experienceData + (i * g_numWaypoints) + j)->team1Value = (signed short) ((experienceLoad + i * (g_numWaypoints) + j)->team1Value) * 8;
+}
+}
+delete [] experienceLoad;
+}
+else
+AddLogEntry (true, LOG_ERROR, "Experience data damaged (wrong version, or not for this map)");
+}
+}
+}*/

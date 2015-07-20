@@ -154,7 +154,7 @@ int BotManager::CreateBot (const String &name, int difficulty, int personality, 
          strcpy (outputName, prefixedName);
    }
 
-   if (IsEntityNull ((bot = (*g_engfuncs.pfnCreateFakeClient) (outputName))))
+   if (IsNullEntity ((bot = (*g_engfuncs.pfnCreateFakeClient) (outputName))))
    {
       CenterPrint ("Maximum players reached (%d/%d). Unable to create Bot.", GetMaxClients (), GetMaxClients ());
       return 2;
@@ -178,7 +178,7 @@ int BotManager::CreateBot (const String &name, int difficulty, int personality, 
 int BotManager::GetIndex (edict_t *ent)
 {
    // this function returns index of bot (using own bot array)
-   if (IsEntityNull (ent))
+   if (IsNullEntity (ent))
       return -1;
 
    int index = IndexOfEntity (ent) - 1;
@@ -479,7 +479,7 @@ void BotManager::RemoveMenu (edict_t *ent, int selection)
 
    for (int i = ((selection - 1) * 8); i < selection * 8; i++)
    {
-      if ((m_bots[i] != NULL) && !IsEntityNull (m_bots[i]->GetEntity ()))
+      if ((m_bots[i] != NULL) && !IsNullEntity (m_bots[i]->GetEntity ()))
       {
          validSlots |= 1 << (i - ((selection - 1) * 8));
          sprintf (buffer, "%s %1.1d. %s%s\n", buffer, i - ((selection - 1) * 8) + 1, STRING (m_bots[i]->pev->netname), GetTeam (m_bots[i]->GetEntity ()) == TEAM_CF ? " \\y(CT)\\w" : " \\r(T)\\w");
@@ -794,15 +794,9 @@ Bot::Bot (edict_t *bot, int difficulty, int personality, int team, int member, c
 
    m_lastCommandTime = GetWorldTime () - 0.1f;
    m_frameInterval = GetWorldTime ();
+
    m_msecValRest = 0.0f;
-
    m_timePeriodicUpdate = 0.0f;
-
-   bot->v.idealpitch = bot->v.v_angle.x;
-   bot->v.ideal_yaw = bot->v.v_angle.y;
-
-   bot->v.yaw_speed = Random.Float (m_difficulty * 40, m_difficulty * 45);
-   bot->v.pitch_speed = Random.Float (m_difficulty * 40, m_difficulty * 45);
 
    switch (personality)
    {
@@ -1130,7 +1124,7 @@ void Bot::Kill (void)
 
    edict_t *hurtEntity = (*g_engfuncs.pfnCreateNamedEntity) (MAKE_STRING ("trigger_hurt"));
 
-   if (IsEntityNull (hurtEntity))
+   if (IsNullEntity (hurtEntity))
       return;
 
    hurtEntity->v.classname = MAKE_STRING (g_weaponDefs[m_currentWeapon].className);
@@ -1282,7 +1276,7 @@ void BotManager::SendPingDataOffsets (edict_t *to)
    if (g_gameVersion == CSV_OLD || yb_latency_display.GetInt () != 2)
       return;
 
-   if (IsEntityNull (to))
+   if (IsNullEntity (to))
       return;
 
    if (!(to->v.flags & FL_CLIENT) && !(((to->v.button & IN_SCORE) || !(to->v.oldbuttons & IN_SCORE))))
@@ -1359,7 +1353,7 @@ void BotManager::UpdateActiveGrenades (void)
    m_activeGrenades.RemoveAll ();
 
    // search the map for any type of grenade
-   while (!IsEntityNull (grenade = FIND_ENTITY_BY_CLASSNAME (grenade, "grenade")))
+   while (!IsNullEntity (grenade = FIND_ENTITY_BY_CLASSNAME (grenade, "grenade")))
       m_activeGrenades.Push (grenade);
 }
 

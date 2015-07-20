@@ -277,7 +277,7 @@ void Bot::AvoidGrenades (void)
       return;
 
   // check if old pointers to grenade is invalid
-   if (IsEntityNull (m_avoidGrenade))
+   if (IsNullEntity (m_avoidGrenade))
    {
       m_avoidGrenade = NULL;
       m_needAvoidGrenade = 0;
@@ -314,7 +314,7 @@ void Bot::AvoidGrenades (void)
       }
       else if (strcmp (STRING (ent->v.model) + 9, "hegrenade.mdl") == 0)
       {
-         if (!IsEntityNull (m_avoidGrenade))
+         if (!IsNullEntity (m_avoidGrenade))
             return;
 
          if (GetTeam (ent->v.owner) == m_team && ent->v.owner != GetEntity ())
@@ -465,7 +465,7 @@ void Bot::VerifyBreakable (edict_t *touch)
 
    m_breakableEntity = FindBreakable ();
 
-   if (IsEntityNull (m_breakableEntity))
+   if (IsNullEntity (m_breakableEntity))
       return;
 
    m_campButtons = pev->button & IN_DUCK;
@@ -568,12 +568,12 @@ void Bot::FindItem (void)
 
    const float searchRadius = 340.0f;
 
-   if (!IsEntityNull (m_pickupItem))
+   if (!IsNullEntity (m_pickupItem))
    {
       bool itemExists = false;
       pickupItem = m_pickupItem;
 
-      while (!IsEntityNull (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, searchRadius)))
+      while (!IsNullEntity (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, searchRadius)))
       {
          if ((ent->v.effects & EF_NODRAW) || IsValidPlayer (ent->v.owner))
             continue; // someone owns this weapon or it hasn't re spawned yet
@@ -607,7 +607,7 @@ void Bot::FindItem (void)
    m_pickupItem = NULL;
    m_pickupType = PICKUP_NONE;
 
-   while (!IsEntityNull (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, searchRadius)))
+   while (!IsNullEntity (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, searchRadius)))
    {
       bool allowPickup = false;  // assume can't use it until known otherwise
 
@@ -767,7 +767,7 @@ void Bot::FindItem (void)
             {
                if (pickupType == PICKUP_HOSTAGE)
                {
-                  if (IsEntityNull (ent) || (ent->v.health <= 0))
+                  if (IsNullEntity (ent) || (ent->v.health <= 0))
                      allowPickup = false; // never pickup dead hostage
                   else for (int i = 0; i < GetMaxClients (); i++)
                   {
@@ -861,7 +861,7 @@ void Bot::FindItem (void)
       }
    } // end of the while loop
 
-   if (!IsEntityNull (pickupItem))
+   if (!IsNullEntity (pickupItem))
    {
       for (int i = 0; i < GetMaxClients (); i++)
       {
@@ -1803,7 +1803,7 @@ void Bot::SetConditions (void)
    }
 
    // did bot just kill an enemy?
-   if (!IsEntityNull (m_lastVictim))
+   if (!IsNullEntity (m_lastVictim))
    {
       if (GetTeam (m_lastVictim) != m_team)
       {
@@ -1870,7 +1870,7 @@ void Bot::SetConditions (void)
    }
 
    // check if our current enemy is still valid
-   if (!IsEntityNull (m_lastEnemy))
+   if (!IsNullEntity (m_lastEnemy))
    {
       if (!IsAlive (m_lastEnemy) && m_shootAtDeadTime < GetWorldTime ())
       {
@@ -1893,7 +1893,7 @@ void Bot::SetConditions (void)
    else if (m_heardSoundTime < GetWorldTime ())
       m_states &= ~STATE_HEARING_ENEMY;
 
-   if (IsEntityNull (m_enemy) && !IsEntityNull (m_lastEnemy) && m_lastEnemyOrigin != nullvec)
+   if (IsNullEntity (m_enemy) && !IsNullEntity (m_lastEnemy) && m_lastEnemyOrigin != nullvec)
    {
       m_aimFlags |= AIM_PREDICT_PATH;
 
@@ -1903,7 +1903,7 @@ void Bot::SetConditions (void)
    CheckGrenadeThrow ();
 
    // check if there are items needing to be used/collected
-   if (m_itemCheckTime < GetWorldTime () || !IsEntityNull (m_pickupItem))
+   if (m_itemCheckTime < GetWorldTime () || !IsNullEntity (m_pickupItem))
    {
       m_itemCheckTime = GetWorldTime () + 0.4f;
       FindItem ();
@@ -1936,7 +1936,7 @@ void Bot::ApplyTaskFilters (void)
    }
 
    // bot found some item to use?
-   if (!IsEntityNull (m_pickupItem) && GetTaskId () != TASK_ESCAPEFROMBOMB)
+   if (!IsNullEntity (m_pickupItem) && GetTaskId () != TASK_ESCAPEFROMBOMB)
    {
       m_states |= STATE_PICKUP_ITEM;
 
@@ -1996,7 +1996,7 @@ void Bot::ApplyTaskFilters (void)
 
       // if half of the round is over, allow hunting
       // FIXME: it probably should be also team/map dependant
-      if (GetTaskId () != TASK_ESCAPEFROMBOMB && IsEntityNull (m_enemy) && g_timeRoundMid < GetWorldTime () && !m_isUsingGrenade && m_currentWaypointIndex != waypoint->FindNearest (m_lastEnemyOrigin) && m_personality != PERSONALITY_CAREFUL)
+      if (GetTaskId () != TASK_ESCAPEFROMBOMB && IsNullEntity (m_enemy) && g_timeRoundMid < GetWorldTime () && !m_isUsingGrenade && m_currentWaypointIndex != waypoint->FindNearest (m_lastEnemyOrigin) && m_personality != PERSONALITY_CAREFUL)
       {
          float desireLevel = 4096.0 - ((1.0 - tempAgression) * distance);
 
@@ -2189,7 +2189,7 @@ void Bot::TaskComplete (void)
 
 bool Bot::EnemyIsThreat (void)
 {
-   if (IsEntityNull (m_enemy) || GetTaskId () == TASK_SEEKCOVER)
+   if (IsNullEntity (m_enemy) || GetTaskId () == TASK_SEEKCOVER)
       return false;
 
    float distance = (m_enemy->v.origin - pev->origin).GetLength ();
@@ -2239,7 +2239,7 @@ bool Bot::ReactOnEnemy (void)
 bool Bot::LastEnemyShootable (void)
 {
    // don't allow shooting through walls
-   if (!(m_aimFlags & AIM_LAST_ENEMY) || m_lastEnemyOrigin == nullvec || IsEntityNull (m_lastEnemy))
+   if (!(m_aimFlags & AIM_LAST_ENEMY) || m_lastEnemyOrigin == nullvec || IsNullEntity (m_lastEnemy))
       return false;
 
    return GetShootingConeDeviation (GetEntity (), &m_lastEnemyOrigin) >= 0.90 && IsShootableThruObstacle (m_lastEnemyOrigin);
@@ -2268,7 +2268,7 @@ void Bot::CheckRadioCommands (void)
       // check if line of sight to object is not blocked (i.e. visible)
       if ((EntityIsVisible (m_radioEntity->v.origin)) || (m_radioOrder == Radio_StickTogether))
       {
-         if (IsEntityNull (m_targetEntity) && IsEntityNull (m_enemy) && Random.Long (0, 100) < (m_personality == PERSONALITY_CAREFUL ? 80 : 20))
+         if (IsNullEntity (m_targetEntity) && IsNullEntity (m_enemy) && Random.Long (0, 100) < (m_personality == PERSONALITY_CAREFUL ? 80 : 20))
          {
             int numFollowers = 0;
 
@@ -2333,7 +2333,7 @@ void Bot::CheckRadioCommands (void)
       break;
 
    case Radio_HoldPosition:
-      if (!IsEntityNull (m_targetEntity))
+      if (!IsNullEntity (m_targetEntity))
       {
          if (m_targetEntity == m_radioEntity)
          {
@@ -2352,9 +2352,9 @@ void Bot::CheckRadioCommands (void)
        break;
 
    case Radio_TakingFire:
-      if (IsEntityNull (m_targetEntity))
+      if (IsNullEntity (m_targetEntity))
       {
-         if (IsEntityNull (m_enemy) && m_seeEnemyTime + 4.0 < GetWorldTime ())
+         if (IsNullEntity (m_enemy) && m_seeEnemyTime + 4.0 < GetWorldTime ())
          {
             // decrease fear levels to lower probability of bot seeking cover again
             m_fearLevel -= 0.2;
@@ -2383,7 +2383,7 @@ void Bot::CheckRadioCommands (void)
    case Radio_NeedBackup:
    case Chatter_ScaredEmotion:
    case Chatter_Pinned_Down:
-      if (((IsEntityNull (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 2048 || !m_moveToC4) && Random.Long (0, 100) > 50 && m_seeEnemyTime + 4.0 < GetWorldTime ())
+      if (((IsNullEntity (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 2048 || !m_moveToC4) && Random.Long (0, 100) > 50 && m_seeEnemyTime + 4.0 < GetWorldTime ())
       {
          m_fearLevel -= 0.1;
 
@@ -2415,7 +2415,7 @@ void Bot::CheckRadioCommands (void)
          if (m_fearLevel < 0.0)
             m_fearLevel = 0.0;
       }
-      else if ((IsEntityNull (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 2048)
+      else if ((IsNullEntity (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 2048)
       {
          TaskID taskID = GetTaskId ();
 
@@ -2439,7 +2439,7 @@ void Bot::CheckRadioCommands (void)
             PushTask (TASK_MOVETOPOSITION, TASKPRI_MOVETOPOSITION, -1, 0.0, true);
          }
       }
-      else if (!IsEntityNull (m_doubleJumpEntity))
+      else if (!IsNullEntity (m_doubleJumpEntity))
       {
          RadioMessage (Radio_Affirmative);
          ResetDoubleJumpState ();
@@ -2450,7 +2450,7 @@ void Bot::CheckRadioCommands (void)
       break;
 
    case Radio_ShesGonnaBlow:
-      if (IsEntityNull (m_enemy) && distance < 2048 && g_bombPlanted && m_team == TEAM_TF)
+      if (IsNullEntity (m_enemy) && distance < 2048 && g_bombPlanted && m_team == TEAM_TF)
       {
          RadioMessage (Radio_Affirmative);
 
@@ -2479,7 +2479,7 @@ void Bot::CheckRadioCommands (void)
       break;
 
    case Radio_StormTheFront:
-      if (((IsEntityNull (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024) && Random.Long (0, 100) > 50)
+      if (((IsNullEntity (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024) && Random.Long (0, 100) > 50)
       {
          RadioMessage (Radio_Affirmative);
 
@@ -2510,7 +2510,7 @@ void Bot::CheckRadioCommands (void)
       break;
 
    case Radio_Fallback:
-      if ((IsEntityNull (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024)
+      if ((IsNullEntity (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024)
       {
          m_fearLevel += 0.5;
 
@@ -2615,7 +2615,7 @@ void Bot::CheckRadioCommands (void)
       break;
 
    case Radio_GetInPosition:
-      if ((IsEntityNull (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024)
+      if ((IsNullEntity (m_enemy) && EntityIsVisible (m_radioEntity->v.origin)) || distance < 1024)
       {
          RadioMessage (Radio_Affirmative);
 
@@ -2846,23 +2846,12 @@ void Bot::ChooseAimDirection (void)
       m_lookAt = m_camp;
    else if (flags & AIM_NAVPOINT)
    {
-      m_lookAt = m_destOrigin;
+      int dangerIndex = experience.GetDangerIndex (m_currentWaypointIndex, m_currentWaypointIndex, m_team);
 
-      if (m_canChooseAimDirection && m_currentWaypointIndex != -1 && !(m_currentPath->flags & FLAG_LADDER))
-      {
-         int index = m_currentWaypointIndex;
-
-         if (m_team == TEAM_TF)
-         {
-            if ((g_experienceData + (index * g_numWaypoints) + index)->team0DangerIndex != -1)
-               m_lookAt = waypoint->GetPath ((g_experienceData + (index * g_numWaypoints) + index)->team0DangerIndex)->origin + pev->view_ofs;
-         }
-         else
-         {
-            if ((g_experienceData + (index * g_numWaypoints) + index)->team1DangerIndex != -1)
-               m_lookAt = waypoint->GetPath ((g_experienceData + (index * g_numWaypoints) + index)->team1DangerIndex)->origin + pev->view_ofs;
-         }
-      }
+      if (dangerIndex != -1)
+         m_lookAt = waypoint->GetPath (dangerIndex)->origin;
+      else
+         m_lookAt = m_destOrigin;
    }
 
    if (m_lookAt == nullvec)
@@ -2996,7 +2985,7 @@ void Bot::PeriodicThink (void)
    CheckSpawnTimeConditions ();
 
    // clear enemy far away
-   if (m_lastEnemyOrigin != nullvec && !IsEntityNull (m_lastEnemy) && (pev->origin - m_lastEnemyOrigin).GetLength () >= 1600.0)
+   if (m_lastEnemyOrigin != nullvec && !IsNullEntity (m_lastEnemy) && (pev->origin - m_lastEnemyOrigin).GetLength () >= 1600.0)
    {
       m_lastEnemy = NULL;
       m_lastEnemyOrigin = nullvec;
@@ -3016,7 +3005,7 @@ void Bot::RunTask_Normal (void)
    }
 
    // bots rushing with knife, when have no enemy (thanks for idea to nicebot project)
-   if (m_currentWeapon == WEAPON_KNIFE && (IsEntityNull (m_lastEnemy) || !IsAlive (m_lastEnemy)) && IsEntityNull (m_enemy) && m_knifeAttackTime < GetWorldTime () && !HasShield () && GetNearbyFriendsNearPosition (pev->origin, 96) == 0)
+   if (m_currentWeapon == WEAPON_KNIFE && (IsNullEntity (m_lastEnemy) || !IsAlive (m_lastEnemy)) && IsNullEntity (m_enemy) && m_knifeAttackTime < GetWorldTime () && !HasShield () && GetNearbyFriendsNearPosition (pev->origin, 96) == 0)
    {
       if (Random.Long (0, 100) < 40)
          pev->button |= IN_ATTACK;
@@ -3046,7 +3035,7 @@ void Bot::RunTask_Normal (void)
       m_prevGoalIndex = -1;
 
       // spray logo sometimes if allowed to do so
-      if (m_timeLogoSpray < GetWorldTime () && yb_spraypaints.GetBool () && Random.Long (1, 100) < 60 && m_moveSpeed > GetWalkSpeed () && IsEntityNull (m_pickupItem))
+      if (m_timeLogoSpray < GetWorldTime () && yb_spraypaints.GetBool () && Random.Long (1, 100) < 60 && m_moveSpeed > GetWalkSpeed () && IsNullEntity (m_pickupItem))
          PushTask (TASK_SPRAY, TASKPRI_SPRAYLOGO, -1, GetWorldTime () + 1.0, false);
 
       // reached waypoint is a camp waypoint
@@ -3256,9 +3245,6 @@ void Bot::RunTask_Spray (void)
    m_navTimeset = GetWorldTime ();
    m_moveSpeed = 0.0f;
    m_strafeSpeed = 0.0f;
-
-   m_isStuck = false;
-   m_lastCollTime = GetWorldTime () + 0.5f;
 }
 
 void Bot::RunTask_HuntEnemy (void)
@@ -3267,7 +3253,7 @@ void Bot::RunTask_HuntEnemy (void)
    m_checkTerrain = true;
 
    // if we've got new enemy...
-   if (!IsEntityNull (m_enemy) || IsEntityNull (m_lastEnemy))
+   if (!IsNullEntity (m_enemy) || IsNullEntity (m_lastEnemy))
    {
       // forget about it...
       TaskComplete ();
@@ -3333,7 +3319,7 @@ void Bot::RunTask_SeekCover (void)
 {
    m_aimFlags |= AIM_NAVPOINT;
 
-   if (IsEntityNull (m_lastEnemy) || !IsAlive (m_lastEnemy))
+   if (IsNullEntity (m_lastEnemy) || !IsAlive (m_lastEnemy))
    {
       TaskComplete ();
       m_prevGoalIndex = -1;
@@ -3421,11 +3407,8 @@ void Bot::RunTask_Attack (void)
    m_moveToGoal = false;
    m_checkTerrain = false;
 
-   if (!IsEntityNull (m_enemy))
+   if (!IsNullEntity (m_enemy))
    {
-      ResetCollideState ();
-      m_lastCollTime = GetWorldTime () + 0.5f;
-
       if (IsOnLadder ())
       {
          pev->button |= IN_JUMP;
@@ -3637,7 +3620,7 @@ void Bot::RunTask_Hide (void)
          m_campButtons = 0;
          m_prevGoalIndex = -1;
 
-         if (!IsEntityNull (m_enemy))
+         if (!IsNullEntity (m_enemy))
             CombatFight ();
 
          return;
@@ -3934,7 +3917,7 @@ void Bot::RunTask_DefuseBomb (void)
 
 void Bot::RunTask_FollowUser (void)
 {
-   if (IsEntityNull (m_targetEntity) || !IsAlive (m_targetEntity))
+   if (IsNullEntity (m_targetEntity) || !IsAlive (m_targetEntity))
    {
       m_targetEntity = NULL;
       TaskComplete ();
@@ -3949,7 +3932,7 @@ void Bot::RunTask_FollowUser (void)
       TraceResult tr;
       TraceLine (m_targetEntity->v.origin + m_targetEntity->v.view_ofs, g_pGlobals->v_forward * 500, true, true, GetEntity (), &tr);
 
-      if (!IsEntityNull (tr.pHit) && IsValidPlayer (tr.pHit) && GetTeam (tr.pHit) != m_team)
+      if (!IsNullEntity (tr.pHit) && IsValidPlayer (tr.pHit) && GetTeam (tr.pHit) != m_team)
       {
          m_targetEntity = NULL;
          m_lastEnemy = tr.pHit;
@@ -4044,7 +4027,7 @@ void Bot::RunTask_Throw_HE (void)
       m_moveSpeed = 0.0f;
       m_moveToGoal = false;
    }
-   else if (!(m_states & STATE_SUSPECT_ENEMY) && !IsEntityNull (m_enemy))
+   else if (!(m_states & STATE_SUSPECT_ENEMY) && !IsNullEntity (m_enemy))
       dest = m_enemy->v.origin + (m_enemy->v.velocity.Get2D () * 0.5);
 
    m_isUsingGrenade = true;
@@ -4077,7 +4060,7 @@ void Bot::RunTask_Throw_HE (void)
    {
       edict_t *ent = NULL;
 
-      while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
+      while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
       {
          if (ent->v.owner == GetEntity () && strcmp (STRING (ent->v.model) + 9, "hegrenade.mdl") == 0)
          {
@@ -4094,7 +4077,7 @@ void Bot::RunTask_Throw_HE (void)
          }
       }
 
-      if (IsEntityNull (ent))
+      if (IsNullEntity (ent))
       {
          if (m_currentWeapon != WEAPON_EXPLOSIVE)
          {
@@ -4118,7 +4101,7 @@ void Bot::RunTask_Throw_FL (void)
       m_strafeSpeed = 0.0f;
       m_moveSpeed = 0.0f;
    }
-   else if (!(m_states & STATE_SUSPECT_ENEMY) && !IsEntityNull (m_enemy))
+   else if (!(m_states & STATE_SUSPECT_ENEMY) && !IsNullEntity (m_enemy))
       dest = m_enemy->v.origin + (m_enemy->v.velocity.Get2D () * 0.5);
 
    m_isUsingGrenade = true;
@@ -4140,7 +4123,7 @@ void Bot::RunTask_Throw_FL (void)
    else
    {
       edict_t *ent = NULL;
-      while (!IsEntityNull (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
+      while (!IsNullEntity (ent = FIND_ENTITY_BY_CLASSNAME (ent, "grenade")))
       {
          if (ent->v.owner == GetEntity () && strcmp (STRING (ent->v.model) + 9, "flashbang.mdl") == 0)
          {
@@ -4156,7 +4139,7 @@ void Bot::RunTask_Throw_FL (void)
          }
       }
 
-      if (IsEntityNull (ent))
+      if (IsNullEntity (ent))
       {
          if (m_currentWeapon != WEAPON_FLASHBANG)
          {
@@ -4186,7 +4169,7 @@ void Bot::RunTask_Throw_SG (void)
    Vector src = m_lastEnemyOrigin - pev->velocity;
 
    // predict where the enemy is in 0.5 secs
-   if (!IsEntityNull (m_enemy))
+   if (!IsNullEntity (m_enemy))
       src = src + m_enemy->v.velocity * 0.5;
 
    m_grenade = (src - EyePosition ()).Normalize ();
@@ -4216,7 +4199,7 @@ void Bot::RunTask_Throw_SG (void)
 
 void Bot::RunTask_DoubleJump (void)
 {
-   if (IsEntityNull (m_doubleJumpEntity) || !IsAlive (m_doubleJumpEntity) || (m_aimFlags & AIM_ENEMY) || (m_travelStartIndex != -1 && GetTask ()->time + (waypoint->GetTravelTime (pev->maxspeed, waypoint->GetPath (m_travelStartIndex)->origin, m_doubleJumpOrigin) + 11.0) < GetWorldTime ()))
+   if (IsNullEntity (m_doubleJumpEntity) || !IsAlive (m_doubleJumpEntity) || (m_aimFlags & AIM_ENEMY) || (m_travelStartIndex != -1 && GetTask ()->time + (waypoint->GetTravelTime (pev->maxspeed, waypoint->GetPath (m_travelStartIndex)->origin, m_doubleJumpOrigin) + 11.0) < GetWorldTime ()))
    {
       ResetDoubleJumpState ();
       return;
@@ -4346,7 +4329,7 @@ void Bot::RunTask_ShootBreakable (void)
    m_aimFlags |= AIM_OVERRIDE;
 
    // Breakable destroyed?
-   if (IsEntityNull (FindBreakable ()))
+   if (IsNullEntity (FindBreakable ()))
    {
       TaskComplete ();
       return;
@@ -4380,7 +4363,7 @@ void Bot::RunTask_ShootBreakable (void)
 
 void Bot::RunTask_PickupItem ()
 {
-   if (IsEntityNull (m_pickupItem))
+   if (IsNullEntity (m_pickupItem))
    {
       m_pickupItem = NULL;
       TaskComplete ();
@@ -4516,7 +4499,7 @@ void Bot::RunTask_PickupItem ()
 
             for (int i = 0; i < MAX_HOSTAGES; i++)
             {
-               if (IsEntityNull (m_hostages[i])) // store pointer to hostage so other bots don't steal from this one or bot tries to reuse it
+               if (IsNullEntity (m_hostages[i])) // store pointer to hostage so other bots don't steal from this one or bot tries to reuse it
                {
                   m_hostages[i] = m_pickupItem;
                   m_pickupItem = NULL;
@@ -4542,7 +4525,7 @@ void Bot::RunTask_PickupItem ()
    case PICKUP_BUTTON:
       m_aimFlags |= AIM_ENTITY;
 
-      if (IsEntityNull (m_pickupItem) || m_buttonPushTime < GetWorldTime ()) // it's safer...
+      if (IsNullEntity (m_pickupItem) || m_buttonPushTime < GetWorldTime ()) // it's safer...
       {
          TaskComplete ();
          m_pickupType = PICKUP_NONE;
@@ -4707,7 +4690,7 @@ void Bot::CheckSpawnTimeConditions (void)
       }
       m_checkKnifeSwitch = false;
 
-      if (Random.Long (0, 100) < yb_user_follow_percent.GetInt () && IsEntityNull (m_targetEntity) && !m_isLeader && !m_hasC4)
+      if (Random.Long (0, 100) < yb_user_follow_percent.GetInt () && IsNullEntity (m_targetEntity) && !m_isLeader && !m_hasC4)
          AttachToUser ();
    }
 
@@ -4785,7 +4768,7 @@ void Bot::BotAI (void)
    // some stuff required by by chatter engine
    if (yb_communication_type.GetInt () == 2)
    {
-      if ((m_states & STATE_SEEING_ENEMY) && !IsEntityNull (m_enemy))
+      if ((m_states & STATE_SEEING_ENEMY) && !IsNullEntity (m_enemy))
       {
          int hasFriendNearby = GetNearbyFriendsNearPosition (pev->origin, 512.0f);
 
@@ -4904,12 +4887,12 @@ void Bot::BotAI (void)
    }
 
    // time to reach waypoint
-   if (m_navTimeset + GetEstimatedReachTime () < GetWorldTime () && IsEntityNull (m_enemy))
+   if (m_navTimeset + GetEstimatedReachTime () < GetWorldTime () && IsNullEntity (m_enemy))
    {
       GetValidWaypoint ();
 
       // clear these pointers, bot mingh be stuck getting to them
-      if (!IsEntityNull (m_pickupItem) && !m_hasProgressBar)
+      if (!IsNullEntity (m_pickupItem) && !m_hasProgressBar)
          m_itemIgnore = m_pickupItem;
 
       m_pickupItem = NULL;
@@ -4946,7 +4929,7 @@ void Bot::BotAI (void)
          pev->button |= IN_MOVELEFT;
    }
 
-   if (!IsEntityNull (g_hostEntity) && yb_debug.GetInt () >= 1)
+   if (!IsNullEntity (g_hostEntity) && yb_debug.GetInt () >= 1)
    {
       int specIndex = g_hostEntity->v.iuser2;
 
@@ -5055,9 +5038,9 @@ void Bot::BotAI (void)
 
                char enemyName[80], weaponName[80], aimFlags[64], botType[32];
 
-               if (!IsEntityNull (m_enemy))
+               if (!IsNullEntity (m_enemy))
                   strncpy (enemyName, STRING (m_enemy->v.netname), SIZEOF_CHAR (enemyName));
-               else if (!IsEntityNull (m_lastEnemy))
+               else if (!IsNullEntity (m_lastEnemy))
                {
                   strcpy (enemyName, " (L)");
                   strncat (enemyName, STRING (m_lastEnemy->v.netname), SIZEOF_CHAR (enemyName));
@@ -5068,7 +5051,7 @@ void Bot::BotAI (void)
                char pickupName[80];
                memset (pickupName, 0, sizeof (pickupName));
 
-               if (!IsEntityNull (m_pickupItem))
+               if (!IsNullEntity (m_pickupItem))
                   strncpy (pickupName, STRING (m_pickupItem->v.classname), SIZEOF_CHAR (pickupName));
                else
                   strcpy (pickupName, " (null)");
@@ -5197,7 +5180,7 @@ bool Bot::HasHostage (void)
 {
    for (int i = 0; i < MAX_HOSTAGES; i++)
    {
-      if (!IsEntityNull (m_hostages[i]))
+      if (!IsNullEntity (m_hostages[i]))
       {
          // don't care about dead hostages
          if (m_hostages[i]->v.health <= 0 || (pev->origin - m_hostages[i]->v.origin).GetLength () > 600)
@@ -5225,11 +5208,11 @@ void Bot::TakeDamage (edict_t *inflictor, int damage, int armor, int bits)
    // other player.
 
    m_lastDamageType = bits;
-   CollectGoalExperience (damage, m_team);
+   experience.CollectGoal (static_cast <int> (pev->health), damage, m_chosenGoalIndex, m_prevGoalIndex, m_team);
 
-   if (m_seeEnemyTime + 4.0f < GetWorldTime () && IsValidPlayer (inflictor))
+   if (IsValidPlayer (inflictor))
    {
-      if (GetTeam (inflictor) == m_team && yb_tkpunish.GetBool () && !botMgr->GetBot (inflictor))
+      if (m_seeEnemyTime + 4.0f < GetWorldTime () && GetTeam (inflictor) == m_team && yb_tkpunish.GetBool () && !botMgr->GetBot (inflictor))
       {
          // alright, die you teamkiller!!!
          m_actualReactionTime = 0.0f;
@@ -5263,7 +5246,7 @@ void Bot::TakeDamage (edict_t *inflictor, int damage, int armor, int bits)
          }
          RemoveCertainTask (TASK_CAMP);
 
-         if (IsEntityNull (m_enemy) && m_team != GetTeam (inflictor))
+         if (IsNullEntity (m_enemy) && m_team != GetTeam (inflictor))
          {
             m_lastEnemy = inflictor;
             m_lastEnemyOrigin = inflictor->v.origin;
@@ -5272,8 +5255,20 @@ void Bot::TakeDamage (edict_t *inflictor, int damage, int armor, int bits)
             m_seeEnemyTime = GetWorldTime ();
          }
 
-         if (yb_csdm_mode.GetInt () == 0)
-            CollectExperienceData (inflictor, armor + damage);
+         if (!yb_csdm_mode.GetBool ())
+         {
+            Bot *enemy = botMgr->GetBot (m_enemy);
+
+            if (enemy != NULL)
+               experience.CollectDamage (this, inflictor, static_cast <int> (pev->health), armor + damage, m_goalValue, enemy->m_goalValue);
+            else
+            {
+               float side = 0.0f;
+               experience.CollectDamage (this, inflictor, static_cast <int> (pev->health), armor + damage, m_goalValue, side);
+            }
+
+            ServerPrint ("Should take DAMAGE!!!");
+         }
       }
    }
    else // hurt by unusual damage like drowning or gas
@@ -5328,117 +5323,6 @@ void Bot::TakeBlinded (const Vector &fade, int alpha)
       }
       else
          m_blindMoveSpeed = walkSpeed;
-   }
-}
-
-void Bot::CollectGoalExperience (int damage, int team)
-{
-   // gets called each time a bot gets damaged by some enemy. tries to achieve a statistic about most/less dangerous
-   // waypoints for a destination goal used for pathfinding
-
-   if (g_numWaypoints < 1 || g_waypointsChanged || m_chosenGoalIndex < 0 || m_prevGoalIndex < 0)
-      return;
-
-   // only rate goal waypoint if bot died because of the damage
-   // FIXME: could be done a lot better, however this cares most about damage done by sniping or really deadly weapons
-   if (pev->health - damage <= 0)
-   {
-      if (team == TEAM_TF)
-      {
-         int value = (g_experienceData + (m_chosenGoalIndex * g_numWaypoints) + m_prevGoalIndex)->team0Value;
-         value -= static_cast <int> (pev->health / 20);
-
-         if (value < -MAX_GOAL_VALUE)
-            value = -MAX_GOAL_VALUE;
-
-         else if (value > MAX_GOAL_VALUE)
-            value = MAX_GOAL_VALUE;
-
-         (g_experienceData + (m_chosenGoalIndex * g_numWaypoints) + m_prevGoalIndex)->team0Value = static_cast <signed short> (value);
-      }
-      else
-      {
-         int value = (g_experienceData + (m_chosenGoalIndex * g_numWaypoints) + m_prevGoalIndex)->team1Value;
-         value -= static_cast <int> (pev->health / 20);
-
-         if (value < -MAX_GOAL_VALUE)
-            value = -MAX_GOAL_VALUE;
-
-         else if (value > MAX_GOAL_VALUE)
-            value = MAX_GOAL_VALUE;
-
-         (g_experienceData + (m_chosenGoalIndex * g_numWaypoints) + m_prevGoalIndex)->team1Value = static_cast <signed short> (value);
-      }
-   }
-}
-
-void Bot::CollectExperienceData (edict_t *attacker, int damage)
-{
-   // this function gets called each time a bot gets damaged by some enemy. sotores the damage (teamspecific) done by victim.
-
-   if (!IsValidPlayer (attacker))
-      return;
-
-   int attackerTeam = GetTeam (attacker);
-   int victimTeam = m_team;
-
-   if (attackerTeam == victimTeam )
-      return;
-
-   // if these are bots also remember damage to rank destination of the bot
-   m_goalValue -= static_cast <float> (damage);
-
-   if (botMgr->GetBot (attacker) != NULL)
-      botMgr->GetBot (attacker)->m_goalValue += static_cast <float> (damage);
-
-   if (damage < 20)
-      return; // do not collect damage less than 20
-
-   int attackerIndex = waypoint->FindNearest (attacker->v.origin);
-   int victimIndex = waypoint->FindNearest (pev->origin);
-
-   if (pev->health > 20)
-   {
-      if (victimTeam == TEAM_TF)
-         (g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team0Damage++;
-      else
-         (g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team1Damage++;
-
-      if ((g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team0Damage > MAX_DAMAGE_VALUE)
-         (g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team0Damage = MAX_DAMAGE_VALUE;
-
-      if ((g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team1Damage > MAX_DAMAGE_VALUE)
-         (g_experienceData + (victimIndex * g_numWaypoints) + victimIndex)->team1Damage = MAX_DAMAGE_VALUE;
-   }
-
-   float fUpdate = IsValidBot (attacker) ? 10.0 : 7.0;
-
-   // store away the damage done
-   if (victimTeam == TEAM_TF)
-   {
-      int value = (g_experienceData + (victimIndex * g_numWaypoints) + attackerIndex)->team0Damage;
-      value += static_cast <int> (damage / fUpdate);
-
-      if (value > MAX_DAMAGE_VALUE)
-         value = MAX_DAMAGE_VALUE;
-
-      if (value > g_highestDamageT)
-         g_highestDamageT = value;
-
-      (g_experienceData + (victimIndex * g_numWaypoints) + attackerIndex)->team0Damage = static_cast <unsigned short> (value);
-   }
-   else
-   {
-      int value = (g_experienceData + (victimIndex * g_numWaypoints) + attackerIndex)->team1Damage;
-      value += static_cast <int> (damage / fUpdate);
-
-      if (value > MAX_DAMAGE_VALUE)
-         value = MAX_DAMAGE_VALUE;
-
-      if (value > g_highestDamageCT)
-         g_highestDamageCT = value;
-
-      (g_experienceData + (victimIndex * g_numWaypoints) + attackerIndex)->team1Damage = static_cast <unsigned short> (value);
    }
 }
 
@@ -5549,7 +5433,7 @@ void Bot::DebugMsg (const char *format, ...)
    vsprintf (buffer, format, ap);
    va_end (ap);
 
-   if (level == 3 && !IsEntityNull (g_hostEntity) && g_hostEntity->v.iuser2 == IndexOfEntity (GetEntity ()))
+   if (level == 3 && !IsNullEntity (g_hostEntity) && g_hostEntity->v.iuser2 == IndexOfEntity (GetEntity ()))
       ServerPrint ("%s: %s", STRING (pev->netname), buffer);
    else if (level != 3)
       ServerPrint ("%s: %s", STRING (pev->netname), buffer);
@@ -5922,7 +5806,7 @@ void Bot::ReactOnSound (void)
       m_heardSoundTime = GetWorldTime () + 5.0;
       m_states |= STATE_HEARING_ENEMY;
 
-      if ((Random.Long (0, 100) < 15) && IsEntityNull (m_enemy) && IsEntityNull (m_lastEnemy) && m_seeEnemyTime + 7.0 < GetWorldTime ())
+      if ((Random.Long (0, 100) < 15) && IsNullEntity (m_enemy) && IsNullEntity (m_lastEnemy) && m_seeEnemyTime + 7.0 < GetWorldTime ())
          ChatterMessage (Chatter_HeardEnemy);
 
       // didn't bot already have an enemy ? take this one...

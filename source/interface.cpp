@@ -189,7 +189,7 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
    // waypoint manimupulation (really obsolete, can be edited through menu) (supported only on listen server)
    else if (stricmp (arg0, "waypoint") == 0 || stricmp (arg0, "wp") == 0 || stricmp (arg0, "wpt") == 0)
    {
-      if (IsDedicatedServer () || IsEntityNull (g_hostEntity))
+      if (IsDedicatedServer () || IsNullEntity (g_hostEntity))
          return 2;
 
       // enables or disable waypoint displaying
@@ -234,11 +234,11 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
 
          if (stricmp (arg2, "on") == 0)
          {
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_start")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_start")))
                spawnEntity->v.effects &= ~EF_NODRAW;
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_deathmatch")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_deathmatch")))
                spawnEntity->v.effects &= ~EF_NODRAW;
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_vip_start")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_vip_start")))
                spawnEntity->v.effects &= ~EF_NODRAW;
 
             ServerCommand ("mp_roundtime 9"); // reset round time to maximum
@@ -247,11 +247,11 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
          }
          else if (stricmp (arg2, "off") == 0)
          {
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_start")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_start")))
                spawnEntity->v.effects |= EF_NODRAW;
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_deathmatch")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_player_deathmatch")))
                spawnEntity->v.effects |= EF_NODRAW;
-            while (!IsEntityNull (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_vip_start")))
+            while (!IsNullEntity (spawnEntity = FIND_ENTITY_BY_CLASSNAME (spawnEntity, "info_vip_start")))
                spawnEntity->v.effects |= EF_NODRAW;
          }
       }
@@ -357,7 +357,7 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
    // path waypoint editing system (supported only on listen server)
    else if (stricmp (arg0, "pathwaypoint") == 0 || stricmp (arg0, "path") == 0 || stricmp (arg0, "pwp") == 0)
    {
-      if (IsDedicatedServer () || IsEntityNull (g_hostEntity))
+      if (IsDedicatedServer () || IsNullEntity (g_hostEntity))
          return 2;
 
       // opens path creation menu
@@ -388,7 +388,7 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
    // automatic waypoint handling (supported only on listen server)
    else if (stricmp (arg0, "autowaypoint") == 0 || stricmp (arg0, "autowp") == 0)
    {
-      if (IsDedicatedServer () || IsEntityNull (g_hostEntity))
+      if (IsDedicatedServer () || IsNullEntity (g_hostEntity))
          return 2;
 
       // enable autowaypointing
@@ -409,13 +409,13 @@ int BotCommandHandler (edict_t *ent, const char *arg0, const char *arg1, const c
    // experience system handling (supported only on listen server)
    else if (stricmp (arg0, "experience") == 0 || stricmp (arg0, "exp") == 0)
    {
-      if (IsDedicatedServer () || IsEntityNull (g_hostEntity))
+      if (IsDedicatedServer () || IsNullEntity (g_hostEntity))
          return 2;
 
       // write experience table (and visibility table) to hard disk
       if (stricmp (arg1, "save") == 0)
       {
-         waypoint->SaveExperienceTab ();
+         experience.Unload ();
          waypoint->SaveVisibilityTab ();
 
          ServerPrint ("Experience tab saved");
@@ -934,7 +934,7 @@ void Touch (edict_t *pentTouched, edict_t *pentOther)
    // the two entities both have velocities, for example two players colliding, this function
    // is called twice, once for each entity moving.
 
-   if (!IsEntityNull (pentOther) && (pentOther->v.flags & FL_FAKECLIENT))
+   if (!IsNullEntity (pentOther) && (pentOther->v.flags & FL_FAKECLIENT))
    {
       Bot *bot = botMgr->GetBot (pentOther);
 
@@ -2083,7 +2083,7 @@ void ServerDeactivate (void)
    // the loading of new bots and the new BSP data parsing there.
 
    // save collected experience on shutdown
-   waypoint->SaveExperienceTab ();
+   experience.Unload ();
    waypoint->SaveVisibilityTab ();
 
    FreeLibraryMemory ();
@@ -2112,7 +2112,7 @@ void StartFrame (void)
    {
       edict_t *player = EntityOfIndex (i + 1);
 
-      if (!IsEntityNull (player) && (player->v.flags & FL_CLIENT))
+      if (!IsNullEntity (player) && (player->v.flags & FL_CLIENT))
       {
          g_clients[i].ent = player;
          g_clients[i].flags |= CF_USED;
@@ -2139,7 +2139,7 @@ void StartFrame (void)
       }
    }
 
-   if (!IsDedicatedServer () && !IsEntityNull (g_hostEntity))
+   if (!IsDedicatedServer () && !IsNullEntity (g_hostEntity))
    {
       if (g_waypointOn)
          waypoint->Think ();
@@ -2157,7 +2157,7 @@ void StartFrame (void)
          edict_t *player = EntityOfIndex (i + 1);
 
          // code below is executed only on dedicated server
-         if (IsDedicatedServer () && !IsEntityNull (player) && (player->v.flags & FL_CLIENT) && !(player->v.flags & FL_FAKECLIENT))
+         if (IsDedicatedServer () && !IsNullEntity (player) && (player->v.flags & FL_CLIENT) && !(player->v.flags & FL_FAKECLIENT))
          {
             if (g_clients[i].flags & CF_ADMIN)
             {
@@ -2271,7 +2271,7 @@ void pfnChangeLevel (char *s1, char *s2)
    // spawn point named "tr_2lm".
 
    // save collected experience on map change
-   waypoint->SaveExperienceTab ();
+   experience.Unload ();
    waypoint->SaveVisibilityTab ();
 
    if (g_isMetamod)
@@ -2387,7 +2387,7 @@ void pfnMessageBegin (int msgDest, int msgType, const float *origin, edict_t *ed
 
    netmsg->HandleMessageIfRequired (msgType, NETMSG_WEAPONLIST);
 
-   if (!IsEntityNull (ed))
+   if (!IsNullEntity (ed))
    {
       int index = botMgr->GetIndex (ed);
 

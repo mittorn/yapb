@@ -18,7 +18,7 @@ int Bot::FindGoal (void)
    {
       edict_t *pent = NULL;
 
-      while (!IsEntityNull (pent = FIND_ENTITY_BY_STRING (pent, "classname", "weaponbox")))
+      while (!IsNullEntity (pent = FIND_ENTITY_BY_STRING (pent, "classname", "weaponbox")))
       {
          if (strcmp (STRING (pent->v.model), "models/w_backpack.mdl") == 0)
          {
@@ -218,18 +218,13 @@ TacticChoosen:
 
       for (int i = 0; i < 3; i++)
       {
-         int testIndex = goalChoices[i + 1];
-
-         if (testIndex < 0)
+         if (goalChoices[i + 1] < 0)
             break;
 
-         int goal1 = m_team == TEAM_TF ? (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + goalChoices[i])->team0Value : (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + goalChoices[i])->team1Value;
-         int goal2 = m_team == TEAM_TF ? (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + goalChoices[i + 1])->team0Value : (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + goalChoices[i + 1])->team1Value;
-
-         if (goal1 < goal2)
+         if (experience.GetValue (m_currentWaypointIndex, goalChoices[i], m_team) < experience.GetValue (m_currentWaypointIndex, goalChoices[i + 1], m_team))
          {
             goalChoices[i + 1] = goalChoices[i];
-            goalChoices[i] = testIndex;
+            goalChoices[i] = goalChoices[i + 1];
 
             isSorting = true;
          }
@@ -287,14 +282,12 @@ bool Bot::GoalIsValid (void)
 
 void Bot::ResetCollideState (void)
 {
-   m_collideTime = 0.0;
-   m_probeTime = 0.0;
+   m_collideTime = 0.0f;
+   m_probeTime = 0.0f;
 
    m_collisionProbeBits = 0;
    m_collisionState = COLLISION_NOTDECICED;
    m_collStateIndex = 0;
-
-   m_isStuck = false;
 
    for (int i = 0; i < MAX_COLLIDE_MOVES; i++)
       m_collideMoves[i] = 0;
@@ -307,7 +300,6 @@ void Bot::CheckCloseAvoidance (const Vector &dirNormal)
 
    edict_t *nearest = NULL;
    float nearestDist = 99999.0f;
-   int playerCount = 0;
 
    for (int i = 0; i < GetMaxClients (); i++)
    {
@@ -322,12 +314,10 @@ void Bot::CheckCloseAvoidance (const Vector &dirNormal)
       {
          nearestDist = distance;
          nearest = cl->ent;
-
-         playerCount++;
       }
    }
 
-   if (playerCount < 3 && IsValidPlayer (nearest))
+   if (IsValidPlayer (nearest))
    {
       MakeVectors (m_moveAngles); // use our movement angles
 
@@ -343,14 +333,12 @@ void Bot::CheckCloseAvoidance (const Vector &dirNormal)
       if ((nearest->v.origin - moved).GetLength2D () <= 48.0 || (nearestDistance <= 56.0 && nextFrameDistance < nearestDistance))
       {
          // to start strafing, we have to first figure out if the target is on the left side or right side
-         Vector dirToPoint = (pev->origin - nearest->v.origin).Get2D ();
+         const Vector &dirToPoint = (pev->origin - nearest->v.origin).Get2D ();
 
          if ((dirToPoint | g_pGlobals->v_right.Get2D ()) > 0.0)
             SetStrafeSpeed (dirNormal, pev->maxspeed);
          else
             SetStrafeSpeed (dirNormal, -pev->maxspeed);
-
-         ResetCollideState ();
 
          if (nearestDistance < 56.0 && (dirToPoint | g_pGlobals->v_forward.Get2D ()) < 0.0)
             m_moveSpeed = -pev->maxspeed;
@@ -371,7 +359,9 @@ void Bot::CheckTerrain (float movedDistance, const Vector &dirNormal)
 
    // Standing still, no need to check?
    // FIXME: doesn't care for ladder movement (handled separately) should be included in some way
-   if ((m_moveSpeed >= 10 || m_strafeSpeed >= 10) && m_lastCollTime < GetWorldTime ())
+   TaskID id = GetTaskId ();
+
+   if ((m_moveSpeed >= 10 || m_strafeSpeed >= 10) && m_lastCollTime < GetWorldTime () && id != TASK_ATTACK && id != TASK_SHOOTBREAKABLE && id != TASK_SPRAY)
    {
       bool cantMoveForward = false;
 
@@ -738,7 +728,7 @@ bool Bot::DoWaypointNav (void)
       TraceLine (m_currentPath->origin, m_currentPath->origin + Vector (0, 0, -50), true, true, GetEntity (), &tr);
 
       // if trace result shows us that it is a lift
-      if (!IsEntityNull (tr.pHit) && m_navNode != NULL && (strcmp (STRING (tr.pHit->v.classname), "func_door") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_plat") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_train") == 0) && !liftClosedDoorExists)
+      if (!IsNullEntity (tr.pHit) && m_navNode != NULL && (strcmp (STRING (tr.pHit->v.classname), "func_door") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_plat") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_train") == 0) && !liftClosedDoorExists)
       {
          if ((m_liftState == LIFT_NO_NEARBY || m_liftState == LIFT_WAITING_FOR || m_liftState == LIFT_LOOKING_BUTTON_OUTSIDE) && tr.pHit->v.velocity.z == 0)
          {
@@ -764,7 +754,7 @@ bool Bot::DoWaypointNav (void)
             {
                TraceLine (m_currentPath->origin, waypoint->GetPath (m_navNode->next->index)->origin, true, true, GetEntity (), &tr);
 
-               if (!IsEntityNull (tr.pHit) && (strcmp (STRING (tr.pHit->v.classname), "func_door") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_plat") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_train") == 0))
+               if (!IsNullEntity (tr.pHit) && (strcmp (STRING (tr.pHit->v.classname), "func_door") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_plat") == 0 || strcmp (STRING (tr.pHit->v.classname), "func_train") == 0))
                   m_liftEntity = tr.pHit;
             }
             m_liftState = LIFT_LOOKING_BUTTON_OUTSIDE;
@@ -879,7 +869,7 @@ bool Bot::DoWaypointNav (void)
          edict_t *button = FindNearestButton (STRING (m_liftEntity->v.targetname));
 
          // got a valid button entity ?
-         if (!IsEntityNull (button) && pev->groundentity == m_liftEntity && m_buttonPushTime + 1.0 < GetWorldTime () && m_liftEntity->v.velocity.z == 0.0 && IsOnFloor ())
+         if (!IsNullEntity (button) && pev->groundentity == m_liftEntity && m_buttonPushTime + 1.0 < GetWorldTime () && m_liftEntity->v.velocity.z == 0.0 && IsOnFloor ())
          {
             m_pickupItem = button;
             m_pickupType = PICKUP_BUTTON;
@@ -891,7 +881,7 @@ bool Bot::DoWaypointNav (void)
       // is lift activated and bot is standing on it and lift is moving ?
       if (m_liftState == LIFT_LOOKING_BUTTON_INSIDE || m_liftState == LIFT_ENTERING_IN || m_liftState == LIFT_WAIT_FOR_TEAMMATES || m_liftState == LIFT_WAITING_FOR)
       {
-         if (pev->groundentity == m_liftEntity && m_liftEntity->v.velocity.z != 0 && IsOnFloor () && ((waypoint->GetPath (m_prevWptIndex[0])->flags & FLAG_LIFT) || !IsEntityNull (m_targetEntity)))
+         if (pev->groundentity == m_liftEntity && m_liftEntity->v.velocity.z != 0 && IsOnFloor () && ((waypoint->GetPath (m_prevWptIndex[0])->flags & FLAG_LIFT) || !IsNullEntity (m_targetEntity)))
          {
             m_liftState = LIFT_TRAVELING_BY;
             m_liftUsageTime = GetWorldTime () + 14.0;
@@ -949,12 +939,12 @@ bool Bot::DoWaypointNav (void)
                ResetCollideState ();
             }
          }
-         else if (!IsEntityNull(m_liftEntity))
+         else if (!IsNullEntity(m_liftEntity))
          {
             edict_t *button = FindNearestButton (STRING (m_liftEntity->v.targetname));
 
             // if we got a valid button entity
-            if (!IsEntityNull (button))
+            if (!IsNullEntity (button))
             {
                // lift is already used ?
                bool liftUsed = false;
@@ -962,7 +952,7 @@ bool Bot::DoWaypointNav (void)
                // iterate though clients, and find if lift already used
                for (int i = 0; i < GetMaxClients (); i++)
                {
-                  if (!(g_clients[i].flags & CF_USED) || !(g_clients[i].flags & CF_ALIVE) || g_clients[i].team != m_team || g_clients[i].ent == GetEntity () || IsEntityNull (g_clients[i].ent->v.groundentity))
+                  if (!(g_clients[i].flags & CF_USED) || !(g_clients[i].flags & CF_ALIVE) || g_clients[i].team != m_team || g_clients[i].ent == GetEntity () || IsNullEntity (g_clients[i].ent->v.groundentity))
                      continue;
 
                   if (g_clients[i].ent->v.groundentity == m_liftEntity)
@@ -1051,7 +1041,7 @@ bool Bot::DoWaypointNav (void)
       }
    }
 
-   if (!IsEntityNull (m_liftEntity) && !(m_currentPath->flags & FLAG_LIFT))
+   if (!IsNullEntity (m_liftEntity) && !(m_currentPath->flags & FLAG_LIFT))
    {
       if (m_liftState == LIFT_TRAVELING_BY)
       {
@@ -1091,7 +1081,7 @@ bool Bot::DoWaypointNav (void)
    // check if we are going through a door...
    TraceLine (pev->origin, m_waypointOrigin, true, GetEntity (), &tr);
 
-   if (!IsEntityNull (tr.pHit) && IsEntityNull (m_liftEntity) && strncmp (STRING (tr.pHit->v.classname), "func_door", 9) == 0)
+   if (!IsNullEntity (tr.pHit) && IsNullEntity (m_liftEntity) && strncmp (STRING (tr.pHit->v.classname), "func_door", 9) == 0)
    {
       // if the door is near enough...
       if ((GetEntityOrigin (tr.pHit) - pev->origin).GetLengthSquared () < 2500)
@@ -1108,7 +1098,7 @@ bool Bot::DoWaypointNav (void)
       edict_t *button = FindNearestButton (STRING (tr.pHit->v.targetname));
 
       // check if we got valid button
-      if (!IsEntityNull (button))
+      if (!IsNullEntity (button))
       {
          m_pickupItem = button;
          m_pickupType = PICKUP_BUTTON;
@@ -1126,7 +1116,7 @@ bool Bot::DoWaypointNav (void)
 
          edict_t *ent = NULL;
 
-         if (m_doorOpenAttempt > 2 && !IsEntityNull (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, 256.0f)))
+         if (m_doorOpenAttempt > 2 && !IsNullEntity (ent = FIND_ENTITY_IN_SPHERE (ent, pev->origin, 256.0f)))
          {
             if (IsValidPlayer (ent) && IsAlive (ent) && m_team != GetTeam (ent) && GetWeaponPenetrationPower (m_currentWeapon) > 0)
             {
@@ -1186,38 +1176,8 @@ bool Bot::DoWaypointNav (void)
       {
          // add goal values
          if (m_chosenGoalIndex != -1)
-         {
-            int waypointValue;
-            int startIndex = m_chosenGoalIndex;
-            int goalIndex = m_currentWaypointIndex;
+            experience.CollectValue (m_chosenGoalIndex, m_currentWaypointIndex, static_cast <int> (pev->health), m_goalValue);
 
-            if (m_team == TEAM_TF)
-            {
-               waypointValue = (g_experienceData + (startIndex * g_numWaypoints) + goalIndex)->team0Value;
-               waypointValue += static_cast <int> (pev->health * 0.5);
-               waypointValue += static_cast <int> (m_goalValue * 0.5);
-
-               if (waypointValue < -MAX_GOAL_VALUE)
-                  waypointValue = -MAX_GOAL_VALUE;
-               else if (waypointValue > MAX_GOAL_VALUE)
-                  waypointValue = MAX_GOAL_VALUE;
-
-               (g_experienceData + (startIndex * g_numWaypoints) + goalIndex)->team0Value = waypointValue;
-            }
-            else
-            {
-               waypointValue = (g_experienceData + (startIndex * g_numWaypoints) + goalIndex)->team1Value;
-               waypointValue += static_cast <int> (pev->health * 0.5);
-               waypointValue += static_cast <int> (m_goalValue * 0.5);
-
-               if (waypointValue < -MAX_GOAL_VALUE)
-                  waypointValue = -MAX_GOAL_VALUE;
-               else if (waypointValue > MAX_GOAL_VALUE)
-                  waypointValue = MAX_GOAL_VALUE;
-
-               (g_experienceData + (startIndex * g_numWaypoints) + goalIndex)->team1Value = waypointValue;
-            }
-         }
          return true;
       }
       else if (m_navNode == NULL)
@@ -1399,15 +1359,14 @@ public:
 };
 
 
-float gfunctionKillsDistT (int currentIndex, int parentIndex)
+float gfunctionKillsDist (int currentIndex, int parentIndex, int team)
 {
    // least kills and number of nodes to goal for a team
 
    if (parentIndex == -1)
       return 0;
 
-   float cost = (g_experienceData + (currentIndex * g_numWaypoints) + currentIndex)->team0Damage + g_highestDamageT;
-
+   float cost = experience.GetAStarValue (currentIndex, team, true);
    Path *current = waypoint->GetPath (currentIndex);
 
    for (int i = 0; i < MAX_PATH_INDEX; i++)
@@ -1415,7 +1374,7 @@ float gfunctionKillsDistT (int currentIndex, int parentIndex)
       int neighbour = current->index[i];
 
       if (neighbour != -1)
-         cost += (g_experienceData + (neighbour * g_numWaypoints) + neighbour)->team0Damage;
+         cost += experience.GetDamage (neighbour, neighbour, team);
    }
 
    if (current->flags & FLAG_CROUCH)
@@ -1424,33 +1383,7 @@ float gfunctionKillsDistT (int currentIndex, int parentIndex)
    return waypoint->GetPathDistance (parentIndex, currentIndex) + cost;
 }
 
-
-float gfunctionKillsDistCT (int currentIndex, int parentIndex)
-{
-   // least kills and number of nodes to goal for a team
-
-   if (parentIndex == -1)
-      return 0;
-
-   float cost = (g_experienceData + (currentIndex * g_numWaypoints) + currentIndex)->team1Damage + g_highestDamageCT;
-
-   Path *current = waypoint->GetPath (currentIndex);
-
-   for (int i = 0; i < MAX_PATH_INDEX; i++)
-   {
-      int neighbour = current->index[i];
-
-      if (neighbour != -1)
-         cost += static_cast <int> ((g_experienceData + (neighbour * g_numWaypoints) + neighbour)->team1Damage);
-   }
-
-   if (current->flags & FLAG_CROUCH)
-      cost *= 1.5;
-
-   return waypoint->GetPathDistance (parentIndex, currentIndex) + cost;
-}
-
-float gfunctionKillsDistCTWithHostage (int currentIndex, int parentIndex)
+float gfunctionKillsDistCTWithHostage (int currentIndex, int parentIndex, int)
 {
    // least kills and number of nodes to goal for a team
 
@@ -1460,16 +1393,16 @@ float gfunctionKillsDistCTWithHostage (int currentIndex, int parentIndex)
       return 65355;
 
    else if (current->flags & (FLAG_CROUCH | FLAG_LADDER))
-      return gfunctionKillsDistCT (currentIndex, parentIndex) * 500;
+      return gfunctionKillsDist (currentIndex, parentIndex, TEAM_CF) * 500;
 
-   return gfunctionKillsDistCT (currentIndex, parentIndex);
+   return gfunctionKillsDist (currentIndex, parentIndex, TEAM_CF);
 }
 
-float gfunctionKillsT (int currentIndex, int)
+float gfunctionKills (int currentIndex, int, int team)
 {
    // least kills to goal for a team
 
-   float cost = (g_experienceData + (currentIndex * g_numWaypoints) + currentIndex)->team0Damage;
+   float cost = experience.GetAStarValue (currentIndex, team, false);
 
    Path *current = waypoint->GetPath (currentIndex);
 
@@ -1478,38 +1411,13 @@ float gfunctionKillsT (int currentIndex, int)
       int neighbour = current->index[i];
 
       if (neighbour != -1)
-         cost += (g_experienceData + (neighbour * g_numWaypoints) + neighbour)->team0Damage;
+         cost += experience.GetDamage (neighbour, neighbour, team);
    }
 
    if (current->flags & FLAG_CROUCH)
       cost *= 1.5f;
 
    return cost;
-}
-
-float gfunctionKillsCT (int currentIndex, int parentIndex)
-{
-   // least kills to goal for a team
-
-   if (parentIndex == -1)
-      return 0;
-
-   float cost = (g_experienceData + (currentIndex * g_numWaypoints) + currentIndex)->team1Damage;
-
-   Path *current = waypoint->GetPath (currentIndex);
-
-   for (int i = 0; i < MAX_PATH_INDEX; i++)
-   {
-      int neighbour = current->index[i];
-
-      if (neighbour != -1)
-         cost += (g_experienceData + (neighbour * g_numWaypoints) + neighbour)->team1Damage;
-   }
-
-   if (current->flags & FLAG_CROUCH)
-      cost *= 1.5;
-
-   return cost + 0.5f;
 }
 
 float gfunctionKillsCTWithHostage (int currentIndex, int parentIndex)
@@ -1525,12 +1433,12 @@ float gfunctionKillsCTWithHostage (int currentIndex, int parentIndex)
       return 65355;
 
    else if (current->flags & (FLAG_CROUCH | FLAG_LADDER))
-      return gfunctionKillsDistCT (currentIndex, parentIndex) * 500;
+      return gfunctionKills (currentIndex, parentIndex, TEAM_CF) * 500;
 
-   return gfunctionKillsCT (currentIndex, parentIndex);
+   return gfunctionKills (currentIndex, parentIndex, TEAM_CF);
 }
 
-float gfunctionPathDist (int currentIndex, int parentIndex)
+float gfunctionPathDist (int currentIndex, int parentIndex, int)
 {
    if (parentIndex == -1)
       return 0;
@@ -1552,7 +1460,7 @@ float gfunctionPathDist (int currentIndex, int parentIndex)
    return 65355;
 }
 
-float gfunctionPathDistWithHostage (int currentIndex, int parentIndex)
+float gfunctionPathDistWithHostage (int currentIndex, int parentIndex, int team)
 {
    Path *current = waypoint->GetPath (currentIndex);
 
@@ -1560,9 +1468,9 @@ float gfunctionPathDistWithHostage (int currentIndex, int parentIndex)
       return 65355;
 
    else if (current->flags & (FLAG_CROUCH | FLAG_LADDER))
-      return gfunctionPathDist (currentIndex, parentIndex) * 500;
+      return gfunctionPathDist (currentIndex, parentIndex, team) * 500;
 
-   return gfunctionPathDist (currentIndex, parentIndex);
+   return gfunctionPathDist (currentIndex, parentIndex, team);
 }
 
 float hfunctionSquareDist (int index, int, int goalIndex)
@@ -1572,13 +1480,6 @@ float hfunctionSquareDist (int index, int, int goalIndex)
    Path *start = waypoint->GetPath (index);
    Path *goal = waypoint->GetPath (goalIndex);
 
-#if 0
-   float deltaX = fabsf (start->origin.x - goal->origin.x);
-   float deltaY = fabsf (start->origin.y - goal->origin.y);
-   float deltaZ = fabsf (start->origin.z - goal->origin.z);
-
-   return static_cast <unsigned int> (deltaX + deltaY + deltaZ);
-#else
    float xDist = fabsf (start->origin.x - goal->origin.x);
    float yDist = fabsf (start->origin.y - goal->origin.y);
    float zDist = fabsf (start->origin.z - goal->origin.z);
@@ -1587,7 +1488,6 @@ float hfunctionSquareDist (int index, int, int goalIndex)
       return 1.4f * yDist + (xDist - yDist) + zDist;
 
    return 1.4f * xDist + (yDist - xDist) + zDist;
-#endif
 }
 
 float hfunctionSquareDistWithHostage (int index, int startIndex, int goalIndex)
@@ -1607,7 +1507,7 @@ float hfunctionNone (int index, int startIndex, int goalIndex)
 
 float hfunctionNumberNodes (int index, int startIndex, int goalIndex)
 {
-   return hfunctionSquareDist (index, startIndex, goalIndex) / 128 * g_highestKills;
+   return hfunctionSquareDist (index, startIndex, goalIndex) / 128 * experience.GetKillHistory ();
 }
 
 void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
@@ -1651,7 +1551,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
       astar[i].state = NEW;
    }
 
-   float (*gcalc) (int, int) = NULL;
+   float (*gcalc) (int, int, int) = NULL;
    float (*hcalc) (int, int, int) = NULL;
 
    switch (pathType)
@@ -1672,7 +1572,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
    case 1:
       if (m_team == TEAM_TF)
       {
-         gcalc = gfunctionKillsDistT;
+         gcalc = gfunctionKillsDist;
          hcalc = hfunctionSquareDist;
       }
       else if ((g_mapType & MAP_CS) && HasHostage ())
@@ -1682,7 +1582,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
       }
       else
       {
-         gcalc = gfunctionKillsDistCT;
+         gcalc = gfunctionKillsDist;
          hcalc = hfunctionSquareDist;
       }
       break;
@@ -1691,7 +1591,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
    default:
       if (m_team == TEAM_TF)
       {
-         gcalc = gfunctionKillsT;
+         gcalc = gfunctionKills;
          hcalc = hfunctionNone;
       }
       else if ((g_mapType & MAP_CS) && HasHostage ())
@@ -1701,7 +1601,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
       }
       else
       {
-         gcalc = gfunctionKillsCT;
+         gcalc = gfunctionKills;
          hcalc = hfunctionNone;
       }
       break;
@@ -1709,7 +1609,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
 
 
    // put start node into open list
-   astar[srcIndex].g = gcalc (srcIndex, -1);
+   astar[srcIndex].g = gcalc (srcIndex, -1, m_team);
    astar[srcIndex].f = astar[srcIndex].g + hcalc (srcIndex, srcIndex, destIndex);
    astar[srcIndex].state = OPEN;
 
@@ -1757,7 +1657,7 @@ void Bot::FindPath (int srcIndex, int destIndex, unsigned char pathType)
             continue;
 
          // calculate the F value as F = G + H
-         float g = astar[currentIndex].g + gcalc (currentChild, currentIndex);
+         float g = astar[currentIndex].g + gcalc (currentChild, currentIndex, m_team);
          float h = hcalc (currentChild, srcIndex, destIndex);
          float f = g + h;
 
@@ -1942,58 +1842,9 @@ void Bot::GetValidWaypoint (void)
 
       // FIXME: Do some error checks if we got a waypoint
    }
-   else if (m_navTimeset + GetEstimatedReachTime () < GetWorldTime () && IsEntityNull (m_enemy))
+   else if (m_navTimeset + GetEstimatedReachTime () < GetWorldTime () && IsNullEntity (m_enemy))
    {
-      if (m_team == TEAM_TF)
-      {
-         int value = (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + m_currentWaypointIndex)->team0Damage;
-         value += 100;
-
-         if (value > MAX_DAMAGE_VALUE)
-            value = MAX_DAMAGE_VALUE;
-
-         (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + m_currentWaypointIndex)->team0Damage = static_cast <unsigned short> (value);
-
-         // affect nearby connected with victim waypoints
-         for (int i = 0; i < MAX_PATH_INDEX; i++)
-         {
-            if ((m_currentPath->index[i] > -1) && (m_currentPath->index[i] < g_numWaypoints))
-            {
-               value = (g_experienceData + (m_currentPath->index[i] * g_numWaypoints) + m_currentPath->index[i])->team0Damage;
-               value += 2;
-
-               if (value > MAX_DAMAGE_VALUE)
-                  value = MAX_DAMAGE_VALUE;
-
-               (g_experienceData + (m_currentPath->index[i] * g_numWaypoints) + m_currentPath->index[i])->team0Damage = static_cast <unsigned short> (value);
-            }
-         }
-      }
-      else
-      {
-         int value = (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + m_currentWaypointIndex)->team1Damage;
-         value += 100;
-
-         if (value > MAX_DAMAGE_VALUE)
-            value = MAX_DAMAGE_VALUE;
-
-         (g_experienceData + (m_currentWaypointIndex * g_numWaypoints) + m_currentWaypointIndex)->team1Damage = static_cast <unsigned short> (value);
-
-         // affect nearby connected with victim waypoints
-         for (int i = 0; i < MAX_PATH_INDEX; i++)
-         {
-            if ((m_currentPath->index[i] > -1) && (m_currentPath->index[i] < g_numWaypoints))
-            {
-               value = (g_experienceData + (m_currentPath->index[i] * g_numWaypoints) + m_currentPath->index[i])->team1Damage;
-               value += 2;
-
-               if (value > MAX_DAMAGE_VALUE)
-                  value = MAX_DAMAGE_VALUE;
-
-               (g_experienceData + (m_currentPath->index[i] * g_numWaypoints) + m_currentPath->index[i])->team1Damage = static_cast <unsigned short> (value);
-            }
-         }
-      }
+      experience.CollectValidDamage (m_currentWaypointIndex, m_team);
       DeleteSearchNodes ();
       
       if (m_goalFailed > 1)
@@ -2141,17 +1992,10 @@ int Bot::FindDefendWaypoint (const Vector &origin)
    {
       if (waypointIndex[i] != -1)
       {
-         Experience *exp = (g_experienceData + (waypointIndex[i] * g_numWaypoints) + waypointIndex[i]);
-         int experience = -1;
+         int exp = experience.GetDamage (waypointIndex[i], waypointIndex[i], GetTeam (GetEntity ())) * 100 / MAX_EXPERIENCE_VALUE;
 
-         if (m_team == TEAM_TF)
-            experience = exp->team0Damage;
-         else
-            experience = exp->team1Damage;
-
-         experience = (experience * 100) / (m_team == TEAM_TF ? g_highestDamageT : g_highestDamageCT);
-         minDistance[i] = (experience * 100) / 8192;
-         minDistance[i] += experience;
+         minDistance[i] = (exp * 100) / 8192;
+         minDistance[i] += exp;
       }
    }
 
@@ -2288,17 +2132,10 @@ int Bot::FindCoverWaypoint (float maxDistance)
    {
       if (waypointIndex[i] != -1)
       {
-         Experience *exp = (g_experienceData + (waypointIndex[i] * g_numWaypoints) + waypointIndex[i]);
-         int experience = -1;
+         int exp = experience.GetDamage (waypointIndex[i], waypointIndex[i], GetTeam (GetEntity ())) * 100 / MAX_EXPERIENCE_VALUE;
 
-         if (m_team == TEAM_TF)
-            experience = exp->team0Damage;
-         else
-            experience = exp->team1Damage;
-
-         experience = (experience * 100) / MAX_DAMAGE_VALUE;
-         minDistance[i] = (experience * 100) / 8192;
-         minDistance[i] += experience;
+         minDistance[i] = (exp * 100) / 8192;
+         minDistance[i] += exp;
       }
    }
 
@@ -2404,12 +2241,7 @@ bool Bot::HeadTowardWaypoint (void)
             m_campButtons = 0;
 
             int nextIndex = m_navNode->next->index;
-            float kills = 0;
-
-            if (m_team == TEAM_TF)
-               kills = (g_experienceData + (nextIndex * g_numWaypoints) + nextIndex)->team0Damage / g_highestDamageT;
-            else
-               kills = (g_experienceData + (nextIndex * g_numWaypoints) + nextIndex)->team1Damage / g_highestDamageCT;
+            float kills = experience.GetDamage (nextIndex, nextIndex, m_team);
 
             // if damage done higher than one
             if (kills > 0.15f && g_timeRoundMid + 15.0f < GetWorldTime ())
@@ -2489,7 +2321,7 @@ bool Bot::HeadTowardWaypoint (void)
             }
 
             // is there a jump waypoint right ahead and do we need to draw out the light weapon ?
-            if (willJump && m_currentWeapon != WEAPON_KNIFE && m_currentWeapon != WEAPON_SCOUT && !m_isReloading && !UsesPistol () && (jumpDistance > 210 || (destination.z + 32.0f > src.z && jumpDistance > 150.0f) || ((destination - src).GetLength2D () < 60 && jumpDistance > 60)) && IsEntityNull (m_enemy))
+            if (willJump && m_currentWeapon != WEAPON_KNIFE && m_currentWeapon != WEAPON_SCOUT && !m_isReloading && !UsesPistol () && (jumpDistance > 210 || (destination.z + 32.0f > src.z && jumpDistance > 150.0f) || ((destination - src).GetLength2D () < 60 && jumpDistance > 60)) && IsNullEntity (m_enemy))
                SelectWeaponByName ("weapon_knife"); // draw out the knife if we needed
 
             // bot not already on ladder but will be soon?
@@ -3244,7 +3076,7 @@ int Bot::FindPlantedBomb (void)
    edict_t *bombEntity = NULL; // temporaly pointer to bomb
 
    // search the bomb on the map
-   while (!IsEntityNull (bombEntity = FIND_ENTITY_BY_CLASSNAME (bombEntity, "grenade")))
+   while (!IsNullEntity (bombEntity = FIND_ENTITY_BY_CLASSNAME (bombEntity, "grenade")))
    {
       if (strcmp (STRING (bombEntity->v.model) + 9, "c4.mdl") == 0)
       {
@@ -3296,7 +3128,7 @@ edict_t *Bot::FindNearestButton (const char *targetName)
    edict_t *searchEntity = NULL, *foundEntity = NULL;
 
    // find the nearest button which can open our target
-   while (!IsEntityNull(searchEntity = FIND_ENTITY_BY_TARGET (searchEntity, targetName)))
+   while (!IsNullEntity(searchEntity = FIND_ENTITY_BY_TARGET (searchEntity, targetName)))
    {
       Vector entityOrign = GetEntityOrigin (searchEntity);
 

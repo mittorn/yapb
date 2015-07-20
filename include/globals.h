@@ -72,8 +72,6 @@ extern Client g_clients[32];
 extern MenuText g_menus[21];
 extern TaskItem g_taskFilters[];
 
-extern Experience *g_experienceData;
-
 extern edict_t *g_hostEntity; 
 extern edict_t *g_worldEntity;
 extern Library *g_gameLib;
@@ -117,7 +115,7 @@ static inline int EntOffsetOfEntity(const edict_t *ent)
    return (char *) ent - (char *) g_worldEntity;
 }
 
-static inline bool IsEntityNull (const edict_t *ent)
+static inline bool IsNullEntity (const edict_t *ent)
 {
    return !ent || !EntOffsetOfEntity (ent);
 }

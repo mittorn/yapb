@@ -156,7 +156,7 @@ void Bot::PrepareChatMessage (char *text)
    if (!yb_chat.GetBool () || IsNullString (text))
       return;
 
-   #define ASSIGN_TALK_ENTITY() if (!IsEntityNull (talkEntity)) strncat (m_tempStrings, HumanizeName (const_cast <char *> (STRING (talkEntity->v.netname))), SIZEOF_CHAR (m_tempStrings))
+   #define ASSIGN_TALK_ENTITY() if (!IsNullEntity (talkEntity)) strncat (m_tempStrings, HumanizeName (const_cast <char *> (STRING (talkEntity->v.netname))), SIZEOF_CHAR (m_tempStrings))
 
    memset (&m_tempStrings, 0, sizeof (m_tempStrings));
 
@@ -232,7 +232,7 @@ void Bot::PrepareChatMessage (char *text)
 
             if (i < GetMaxClients ())
             {
-               if (!IsEntityNull (pev->dmg_inflictor) && (m_team == GetTeam (pev->dmg_inflictor)))
+               if (!IsNullEntity (pev->dmg_inflictor) && (m_team == GetTeam (pev->dmg_inflictor)))
                   talkEntity = pev->dmg_inflictor;
                else
                   talkEntity = g_clients[i].ent;
