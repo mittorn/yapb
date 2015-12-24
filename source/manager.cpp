@@ -375,7 +375,7 @@ void BotManager::MaintainBotQuota (void)
       if (botNumber > yb_quota.GetInt ())
          RemoveRandom ();
 
-      if (humanNumber > 0 && yb_quota_match.GetInt () > 0)
+      if (yb_quota_match.GetInt () > 0)
       {
          int num = yb_quota_match.GetInt () * humanNumber;
 
@@ -786,7 +786,7 @@ Bot::Bot (edict_t *bot, int difficulty, int personality, int team, int member, c
       SET_CLIENT_KEYVALUE (clientIndex, buffer, "*bot", "1");
 
    rejectReason[0] = 0; // reset the reject reason template string
-   MDLL_ClientConnect (bot, "BOT", FormatBuffer ("127.0.0.%d", IndexOfEntity (bot) + 100), rejectReason);
+   MDLL_ClientConnect (bot, "BOT", "127.0.0.1", rejectReason);
    
    // should be set after client connect
    if (yb_avatar_display.GetBool () && !steamId.IsEmpty ())
@@ -1177,6 +1177,27 @@ void Bot::Kick (void)
 void Bot::StartGame (void)
 {
    // this function handles the selection of teams & class
+
+
+   m_wantedTeam = Random.Long (1, 2);
+
+   FakeClientCommand (GetEntity (), "jointeam %d", m_wantedTeam);
+
+   if (m_wantedTeam == 2)
+   {
+      SET_MODEL (GetEntity (), ENGINE_STR ("models/player/Counter-Terrorists/Counter-Terrorists.mdl"));
+      SET_CLIENT_KEYVALUE (GetIndex (), GET_INFOKEYBUFFER (GetEntity ()), "model", "Counter-Terrorists");
+   }
+   else
+   {
+      SET_MODEL (GetEntity (), ENGINE_STR ("models/player/Terrorists/Terrorists.mdl"));
+      SET_CLIENT_KEYVALUE (GetIndex (), GET_INFOKEYBUFFER (GetEntity ()), "model", "Terrorists");
+   }
+   if (Random.Long (0, 100) < 20)
+      ChatMessage (CHAT_WELCOME);
+
+   m_notStarted = false;
+   return;
 
    // handle counter-strike stuff here...
    if (m_startAction == GSM_TEAM_SELECT)

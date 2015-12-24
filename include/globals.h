@@ -124,5 +124,13 @@ static inline bool IsEntityNull (const edict_t *ent)
 
 static inline int GetTeam (edict_t *ent)
 {
-   return g_clients[IndexOfEntity (ent) - 1].team;
+
+   if (ent->v.team == 1)
+   {
+      g_clients[IndexOfEntity (ent) - 1].team = TEAM_TF;
+      return TEAM_TF;
+   }
+   g_clients[IndexOfEntity (ent) - 1].team = TEAM_CF;
+   return TEAM_CF;
+
 }

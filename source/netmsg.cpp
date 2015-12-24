@@ -459,20 +459,6 @@ void NetworkMsg::Execute (void *p)
          break;
 
       case 4:
-         if (playerIndex >= 0 && playerIndex <= GetMaxClients ())
-         {
-            if (PTR_TO_INT (p) == 1)
-               g_clients[playerIndex - 1].realTeam = TEAM_TF;
-            else if (PTR_TO_INT (p) == 2)
-               g_clients[playerIndex - 1].realTeam = TEAM_CF;
-            else
-               g_clients[playerIndex - 1].realTeam = TEAM_SPEC;
-
-            if (yb_csdm_mode.GetInt () == 2)
-               g_clients[playerIndex - 1].team = playerIndex;
-            else
-               g_clients[playerIndex - 1].team = g_clients[playerIndex - 1].realTeam;
-         }
          break;
       }
       break;

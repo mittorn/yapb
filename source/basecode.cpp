@@ -1240,7 +1240,7 @@ void Bot::CheckMessageQueue (void)
             }
          }
 
-         if (m_radioSelect != Radio_ReportingIn && g_radioInsteadVoice || yb_communication_type.GetInt () != 2 || g_chatterFactory[m_radioSelect].IsEmpty () || g_gameVersion == CSV_OLD)
+         if (m_radioSelect != Radio_ReportingIn && (g_radioInsteadVoice || yb_communication_type.GetInt () != 2 || g_chatterFactory[m_radioSelect].IsEmpty () || g_gameVersion == CSV_OLD))
          {
             if (m_radioSelect < Radio_GoGoGo)
                FakeClientCommand (GetEntity (), "radio1");
@@ -2961,7 +2961,8 @@ void Bot::ThinkDelayed (void)
          }
       }
    }
-   else if (m_notKilled && m_buyingFinished && !(pev->maxspeed < 10.0f && GetTaskId () != TASK_PLANTBOMB && GetTaskId () != TASK_DEFUSEBOMB) && !yb_freeze_bots.GetBool ())
+   
+  if (m_notKilled)
       botMovement = true;
 
    CheckMessageQueue (); // check for pending messages
@@ -4933,12 +4934,12 @@ void Bot::BotAI (void)
          pev->button |= IN_MOVELEFT;
    }
 
-   if (!IsEntityNull (g_hostEntity) && yb_debug.GetInt () >= 1)
+   if (!IsEntityNull (g_hostEntity) && yb_debug.GetInt () > 0)
    {
-      int specIndex = g_hostEntity->v.iuser2;
+Bot *bt = NULL;
 
-      if (specIndex == IndexOfEntity (GetEntity ()))
-      {
+if (FindNearestPlayer ((void **) &bt,  g_hostEntity, 127.0f, true, true, true, true) && bt == this)
+{
          static float timeDebugUpdate = 0.0f;
          static int index, goal, taskID;
 
@@ -5146,13 +5147,13 @@ void Bot::BotAI (void)
             // blue = ideal angles
             // red = view angles
 
-            DrawArrow (g_hostEntity, EyePosition (), m_destOrigin, 10, 0, 0, 255, 0, 250, 5, 1);
+            DrawArrow (g_hostEntity, pev->origin - Vector (0,0,-16.0f), m_destOrigin, 10, 0, 0, 255, 0, 250, 5, 1);
 
             MakeVectors (m_idealAngles);
             DrawArrow (g_hostEntity, EyePosition (), EyePosition () + g_pGlobals->v_forward * 300.0f, 10, 0, 0, 0, 255, 250, 5, 1);
 
-            MakeVectors (pev->v_angle);
-            DrawArrow (g_hostEntity, EyePosition (), EyePosition () + g_pGlobals->v_forward * 300.0f, 10, 0, 255, 0, 0, 250, 5, 1);
+            MakeVectors (m_moveAngles);
+            DrawArrow (g_hostEntity, pev->origin, EyePosition () + g_pGlobals->v_forward * 300.0f, 10, 0, 255, 0, 0, 250, 5, 1);
 
             // now draw line from source to destination
             PathNode *node = &m_navNode[0];

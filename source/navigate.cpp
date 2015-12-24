@@ -3122,15 +3122,6 @@ void Bot::UpdateLookAngles (void)
 
    direction.ClampAngles ();
 
-   // lower skilled bot's have lower aiming
-   if (m_difficulty < 3)
-   {
-      UpdateLookAnglesLowSkill (direction, delta);
-      UpdateBodyAngles ();
-
-      return;
-   }
-
    // this is what makes bot almost godlike (got it from sypb)
    if (m_difficulty > 3 && (m_aimFlags & AIM_ENEMY) && (m_wantsToFire || UsesSniper ()) && yb_whose_your_daddy.GetBool ())
    {

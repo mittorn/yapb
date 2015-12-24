@@ -12,7 +12,7 @@
 ConVar yb_listenserver_welcome ("yb_listenserver_welcome", "1", VT_NOSERVER);
 
 ConVar mp_roundtime ("mp_roundtime", NULL, VT_NOREGISTER);
-ConVar mp_freezetime ("mp_freezetime", NULL, VT_NOREGISTER);
+ConVar mp_freezetime ("mp_freezetime", "0", VT_NOSERVER);
 
 void TraceLine (const Vector &start, const Vector &end, bool ignoreMonsters, bool ignoreGlass, edict_t *ignoreEntity, TraceResult *ptr)
 {
@@ -919,7 +919,8 @@ const char *GetMapName (void)
 
    static char mapName[256];
    strncpy (mapName, const_cast <const char *> (g_pGlobals->pStringBase + static_cast <int> (g_pGlobals->mapname)), SIZEOF_CHAR (mapName));
-
+   
+   
    return &mapName[0]; // and return a pointer to it
 }
 
@@ -1002,7 +1003,7 @@ void CheckWelcomeMessage (void)
    sentences.Push ("attention, expect experimental armed hostile presence");
    sentences.Push ("warning, medical attention required");
 
-   if (IsAlive (g_hostEntity) && !alreadyReceived && receiveTime < 1.0 && (g_numWaypoints > 0 ? g_isCommencing : true))
+   if (IsAlive (g_hostEntity) && !alreadyReceived && receiveTime < 1.0)
       receiveTime = GetWorldTime () + 4.0f; // receive welcome message in four seconds after game has commencing
 
    if (receiveTime > 0.0f && receiveTime < GetWorldTime () && !alreadyReceived && (g_numWaypoints > 0 ? g_isCommencing : true))

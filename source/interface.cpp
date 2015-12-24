@@ -896,7 +896,7 @@ void GameDLLInit (void)
 {
    // this function is a one-time call, and appears to be the second function called in the
    // DLL after GiveFntprsToDll() has been called. Its purpose is to tell the MOD DLL to
-   // initialize the game before the engine actually hooks into it with its video frames and
+   // initialize the game before the engine actually hooks into it with its video wframes and
    // clients connecting. Note that it is a different step than the *server* initialization.
    // This one is called once, and only once, when the game process boots up before the first
    // server is enabled. Here is a good place to do our own game session initialization, and
@@ -910,17 +910,15 @@ void GameDLLInit (void)
 
    // execute main config
    ServerCommand ("exec addons/yapb/conf/yapb.cfg");
-
    // set correct version string
    yb_version.SetString (FormatBuffer ("%d.%d.%d.%u", PRODUCT_VERSION_DWORD_INTERNAL, GenerateBuildNumber ()));
-
+   
    // register fake metamod command handler if we not! under mm
    if (!g_isMetamod)
       RegisterCommand ("meta", CommandHandler_NotMM);
 
    if (g_isMetamod)
       RETURN_META (MRES_IGNORED);
-
    (*g_functionTable.pfnGameInit) ();
 }
 
@@ -956,13 +954,13 @@ int Spawn (edict_t *ent)
    // world, in other words to 'display') the entity pointed to by ent in the game. The
    // Spawn() function is one of the functions any entity is supposed to have in the game DLL,
    // and any MOD is supposed to implement one for each of its entities.
+   
 
    if (strcmp (STRING (ent->v.classname), "worldspawn") == 0)
    {
       g_worldEntity = ent; // save the world entity for future use
 
       convars.PushRegisteredConVarsToEngine (true);
-
       PRECACHE_SOUND (ENGINE_STR ("weapons/xbow_hit1.wav"));      // waypoint add
       PRECACHE_SOUND (ENGINE_STR ("weapons/mine_activate.wav"));  // waypoint delete
       PRECACHE_SOUND (ENGINE_STR ("common/wpn_hudoff.wav"));      // path add/delete start
@@ -973,38 +971,13 @@ int Spawn (edict_t *ent)
       g_modelIndexLaser = PRECACHE_MODEL (ENGINE_STR ("sprites/laserbeam.spr"));
       g_modelIndexArrow = PRECACHE_MODEL (ENGINE_STR ("sprites/arrow1.spr"));
       g_roundEnded = true;
-
       RoundInit ();
 
       g_mapType = NULL; // reset map type as worldspawn is the first entity spawned
    }
    else if (strcmp (STRING (ent->v.classname), "player_weaponstrip") == 0 && (STRING (ent->v.target))[0] == '0')
       ent->v.target = ent->v.targetname = ALLOC_STRING ("fake");
-   else if (strcmp (STRING (ent->v.classname), "info_player_start") == 0)
-   {
-      SET_MODEL (ent, ENGINE_STR ("models/player/urban/urban.mdl"));
 
-      ent->v.rendermode = kRenderTransAlpha; // set its render mode to transparency
-      ent->v.renderamt = 127; // set its transparency amount
-      ent->v.effects |= EF_NODRAW;
-   }
-   else if (strcmp (STRING (ent->v.classname), "info_player_deathmatch") == 0)
-   {
-      SET_MODEL (ent, ENGINE_STR ("models/player/terror/terror.mdl"));
-
-      ent->v.rendermode = kRenderTransAlpha; // set its render mode to transparency
-      ent->v.renderamt = 127; // set its transparency amount
-      ent->v.effects |= EF_NODRAW;
-   }
-
-   else if (strcmp (STRING (ent->v.classname), "info_vip_start") == 0)
-   {
-      SET_MODEL (ent, ENGINE_STR ("models/player/vip/vip.mdl"));
-
-      ent->v.rendermode = kRenderTransAlpha; // set its render mode to transparency
-      ent->v.renderamt = 127; // set its transparency amount
-      ent->v.effects |= EF_NODRAW;
-   }
    else if (strcmp (STRING (ent->v.classname), "func_vip_safetyzone") == 0 || strcmp (STRING (ent->v.classname), "info_vip_safetyzone") == 0)
       g_mapType |= MAP_AS; // assassination map
 
@@ -1022,12 +995,10 @@ int Spawn (edict_t *ent)
       g_mapType |= MAP_FY;
    else if (strncmp (GetMapName (), "ka_", 3) == 0) // knife arena map
       g_mapType |= MAP_KA;
-
    if (g_isMetamod)
       RETURN_META_VALUE (MRES_IGNORED, 0);
 
    int result = (*g_functionTable.pfnSpawn) (ent); // get result
-
    if (ent->v.rendermode == kRenderTransTexture)
       ent->v.flags &= ~FL_WORLDBRUSH; // clear the FL_WORLDBRUSH flag out of transparent ents
 
@@ -2043,7 +2014,8 @@ void ServerActivate (edict_t *pentEdictList, int edictCount, int clientMax)
    // perfect place for doing initialization stuff for our bots, such as reading the BSP data,
    // loading the bot profiles, and drawing the world map (ie, filling the navigation hashtable).
    // Once this function has been called, the server can be considered as "running".
-
+     
+     
    FreeLibraryMemory ();
    InitConfig (); // initialize all config files
 
@@ -2068,6 +2040,7 @@ void ServerActivate (edict_t *pentEdictList, int edictCount, int clientMax)
       RETURN_META (MRES_IGNORED);
 
    (*g_functionTable.pfnServerActivate) (pentEdictList, edictCount, clientMax);
+   
 
    waypoints.InitializeVisibility ();
 }
@@ -2108,6 +2081,7 @@ void StartFrame (void)
    // for the bots by the MOD side, remember). Also here we have control on the bot population,
    // for example if a new player joins the server, we should disconnect a bot, and if the
    // player population decreases, we should fill the server with other bots.
+   
 
    // run periodic update of bot states
    bots.PeriodicThink ();
@@ -2996,6 +2970,12 @@ export void Meta_Init (void)
    g_isMetamod = true;
 }
 
+#ifdef LOAD_HARDFP
+	#define SERVERDLL "libgamedll_hardfp.so"
+#else
+	#define SERVERDLL "libgamedll.so"
+#endif
+
 DLL_GIVEFNPTRSTODLL GiveFnptrsToDll (enginefuncs_t *functionTable, globalvars_t *pGlobals)
 {
    // this is the very first function that is called in the game DLL by the engine. Its purpose
@@ -3015,96 +2995,26 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll (enginefuncs_t *functionTable, globalvars_t 
 
    // register our cvars
    convars.PushRegisteredConVarsToEngine ();
+   
+   
+	char dllpath[256];
+	strcpy (dllpath, getenv("XASH3D_GAMELIBDIR"));
+	strcat(dllpath, "/" SERVERDLL);
 
-   static struct ModSupport
-   {
-      char name[10];
-      char linuxLib[12];
-      char osxLib[9];
-      char winLib[8];
-      char desc[39];
-      int modType;
-   } s_supportedMods[] =
-   {
-      { "cstrike", "cs_i386.so", "cs.dylib", "mp.dll", "Counter-Strike v1.6", CSV_STEAM },
-      { "cstrike", "cs.so", "cs.dylib", "mp.dll", "Counter-Strike v1.6 (Newer)", CSV_STEAM },
-      { "czero", "cs_i386.so", "cs.dylib", "mp.dll", "Counter-Strike: Condition Zero", CSV_CZERO },
-      { "czero", "cs.so", "cs.dylib", "mp.dll", "Counter-Strike: Condition Zero (Newer)", CSV_CZERO },
-      { "csv15", "cs_i386.so", "cs.dylib", "mp.dll", "CS 1.5 for Steam", CSV_OLD },
-      { "cs13", "cs_i386.so", "cs.dylib", "mp.dll", "Counter-Strike v1.3", CSV_OLD }, // assume cs13 = cs15
-   };
-
-   ModSupport *knownMod = NULL;
-
-   for (int i = 0; i < ARRAYSIZE_HLSDK (s_supportedMods); i++)
-   {
-      ModSupport *mod = &s_supportedMods[i];
-
-      if (strcmp (mod->name, GetModName ()) == 0 && File::Accessible (FormatBuffer ("%s/dlls/%s", mod->name, 
-#if defined (PLATFORM_WIN32)
-         mod->winLib
-#elif defined (PLATFORM_LINUX)
-         mod->linuxLib
-#elif defined (PLATFORM_OSX)
-         mod->osxLib
-#endif
-         )))
-      {
-         knownMod = mod;
-         break;
-      }
-   }
-
-   if (knownMod != NULL)
-   {
-      g_gameVersion = knownMod->modType;
-
-      if (g_isMetamod)
-         return; // we should stop the attempt for loading the real gamedll, since metamod handle this for us
-
-      char gameDLLName[256];
-      sprintf (gameDLLName, "%s/dlls/%s", knownMod->name,
-
-#if defined (PLATFORM_WIN32)
-         knownMod->winLib
-#elif defined (PLATFORM_LINUX)
-         knownMod->linuxLib
-#elif defined (PLATFORM_OSX)
-         knownMod->osxLib
-#endif
-         );
-      g_gameLib = new Library (gameDLLName);
+	ServerPrint ("[YAPB] Loading GameDLL: %s", dllpath);
+	
+	g_gameLib = new Library (dllpath);
 
       if (!g_gameLib->IsLoaded ())
       {
-         // try to extract the game dll out of the steam cache
-         AddLogEntry (true, LL_WARNING | LL_IGNORE, "Trying to extract dll '%s' out of the steam cache", gameDLLName);
-        
-         int size;
-         unsigned char *buffer = (*g_engfuncs.pfnLoadFileForMe) (gameDLLName, &size);
-
-         if (buffer)
-         {
-            CreatePath (const_cast <char *> (FormatBuffer ("%s/dlls", GetModName ())));
-            File fp (gameDLLName, "wb");
-
-            if (fp.IsValid ())
-            {
-               // dump the game dll file and then close it
-               fp.Write (buffer, size);
-               fp.Close ();
-            }
-            FREE_FILE (buffer);
-         }
-         g_gameLib->LoadLib (gameDLLName);
+         g_gameLib->LoadLib (dllpath);
 
          if (!g_gameLib->IsLoaded ())
-            AddLogEntry (true, LL_FATAL | LL_IGNORE, "Unable to load gamedll \"%s\". Exiting... (gamedir: %s)", gameDLLName, GetModName ());
+            AddLogEntry (true, LL_FATAL | LL_IGNORE, "Unable to load gamedll \"%s\". Exiting... (gamedir: %s)", dllpath, GetModName ());
       }
-   }
-   else
-      AddLogEntry (true, LL_FATAL | LL_IGNORE, "Mod that you has started, not supported by this bot (gamedir: %s)", GetModName ());
+      g_gameVersion = CSV_OLD;
       
+
    g_funcPointers = g_gameLib->GetFuncAddr <FuncPointers_t> ("GiveFnptrsToDll");
    g_entityAPI = g_gameLib->GetFuncAddr <EntityAPI_t> ("GetEntityAPI");
    g_getNewEntityAPI = g_gameLib->GetFuncAddr <NewEntityAPI_t> ("GetNewDLLFunctions");
@@ -3119,7 +3029,7 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll (enginefuncs_t *functionTable, globalvars_t 
    (*g_funcPointers) (functionTable, pGlobals);
 }
 
-DLL_ENTRYPOINT
+__attribute__((destructor)) DLL_ENTRYPOINT
 {
    // dynamic library entry point, can be used for uninitialization stuff. NOT for initializing
    // anything because if you ever attempt to wander outside the scope of this function on a
@@ -3128,6 +3038,7 @@ DLL_ENTRYPOINT
    // dynamic library detaching ??
    if (DLL_DETACHING)
    {
+ServerPrint ("YAPB DLL DETACH");
       FreeLibraryMemory (); // free everything that's freeable
       
       delete g_gameLib; // if dynamic link library of mod is load, free it
@@ -3198,31 +3109,23 @@ export void entityFunction (entvars_t *pev) \
 } \
 
 // entities in counter-strike...
-LINK_ENTITY (DelayedUse)
+LINK_ENTITY (aiscripted_sequence)
 LINK_ENTITY (ambient_generic)
-LINK_ENTITY (ammo_338magnum)
-LINK_ENTITY (ammo_357sig)
-LINK_ENTITY (ammo_45acp)
-LINK_ENTITY (ammo_50ae)
-LINK_ENTITY (ammo_556nato)
-LINK_ENTITY (ammo_556natobox)
-LINK_ENTITY (ammo_57mm)
-LINK_ENTITY (ammo_762nato)
-LINK_ENTITY (ammo_9mm)
-LINK_ENTITY (ammo_buckshot)
 LINK_ENTITY (armoury_entity)
 LINK_ENTITY (beam)
 LINK_ENTITY (bodyque)
 LINK_ENTITY (button_target)
+LINK_ENTITY (cine_blood)
 LINK_ENTITY (cycler)
 LINK_ENTITY (cycler_prdroid)
 LINK_ENTITY (cycler_sprite)
 LINK_ENTITY (cycler_weapon)
 LINK_ENTITY (cycler_wreckage)
+LINK_ENTITY (deadplayer_entity)
+LINK_ENTITY (DelayedUse)
 LINK_ENTITY (env_beam)
 LINK_ENTITY (env_beverage)
 LINK_ENTITY (env_blood)
-LINK_ENTITY (env_bombglow)
 LINK_ENTITY (env_bubbles)
 LINK_ENTITY (env_debris)
 LINK_ENTITY (env_explosion)
@@ -3233,11 +3136,9 @@ LINK_ENTITY (env_glow)
 LINK_ENTITY (env_laser)
 LINK_ENTITY (env_lightning)
 LINK_ENTITY (env_message)
-LINK_ENTITY (env_rain)
 LINK_ENTITY (env_render)
 LINK_ENTITY (env_shake)
 LINK_ENTITY (env_shooter)
-LINK_ENTITY (env_snow)
 LINK_ENTITY (env_sound)
 LINK_ENTITY (env_spark)
 LINK_ENTITY (env_sprite)
@@ -3245,16 +3146,13 @@ LINK_ENTITY (fireanddie)
 LINK_ENTITY (func_bomb_target)
 LINK_ENTITY (func_breakable)
 LINK_ENTITY (func_button)
-LINK_ENTITY (func_buyzone)
 LINK_ENTITY (func_conveyor)
 LINK_ENTITY (func_door)
 LINK_ENTITY (func_door_rotating)
-LINK_ENTITY (func_escapezone)
 LINK_ENTITY (func_friction)
-LINK_ENTITY (func_grencatch)
 LINK_ENTITY (func_guntarget)
+LINK_ENTITY (func_headq)
 LINK_ENTITY (func_healthcharger)
-LINK_ENTITY (func_hostage_rescue)
 LINK_ENTITY (func_illusionary)
 LINK_ENTITY (func_ladder)
 LINK_ENTITY (func_monsterclip)
@@ -3263,11 +3161,8 @@ LINK_ENTITY (func_pendulum)
 LINK_ENTITY (func_plat)
 LINK_ENTITY (func_platrot)
 LINK_ENTITY (func_pushable)
-LINK_ENTITY (func_rain)
-LINK_ENTITY (func_recharge)
 LINK_ENTITY (func_rot_button)
 LINK_ENTITY (func_rotating)
-LINK_ENTITY (func_snow)
 LINK_ENTITY (func_tank)
 LINK_ENTITY (func_tankcontrols)
 LINK_ENTITY (func_tanklaser)
@@ -3278,13 +3173,9 @@ LINK_ENTITY (func_trackchange)
 LINK_ENTITY (func_tracktrain)
 LINK_ENTITY (func_train)
 LINK_ENTITY (func_traincontrols)
-LINK_ENTITY (func_vehicle)
-LINK_ENTITY (func_vehiclecontrols)
-LINK_ENTITY (func_vip_safetyzone)
 LINK_ENTITY (func_wall)
 LINK_ENTITY (func_wall_toggle)
 LINK_ENTITY (func_water)
-LINK_ENTITY (func_weaponcheck)
 LINK_ENTITY (game_counter)
 LINK_ENTITY (game_counter_set)
 LINK_ENTITY (game_end)
@@ -3298,50 +3189,62 @@ LINK_ENTITY (game_text)
 LINK_ENTITY (game_zone_player)
 LINK_ENTITY (gibshooter)
 LINK_ENTITY (grenade)
-LINK_ENTITY (hostage_entity)
-LINK_ENTITY (info_bomb_target)
-LINK_ENTITY (info_hostage_rescue)
 LINK_ENTITY (info_intermission)
 LINK_ENTITY (info_landmark)
-LINK_ENTITY (info_map_parameters)
+LINK_ENTITY (info_node)
+LINK_ENTITY (info_node_air)
 LINK_ENTITY (info_null)
+LINK_ENTITY (info_player_csdm)
 LINK_ENTITY (info_player_deathmatch)
 LINK_ENTITY (info_player_start)
 LINK_ENTITY (info_target)
 LINK_ENTITY (info_teleport_destination)
-LINK_ENTITY (info_vip_start)
 LINK_ENTITY (infodecal)
 LINK_ENTITY (item_airtank)
-LINK_ENTITY (item_antidote)
-LINK_ENTITY (item_assaultsuit)
-LINK_ENTITY (item_battery)
 LINK_ENTITY (item_healthkit)
-LINK_ENTITY (item_kevlar)
-LINK_ENTITY (item_longjump)
-LINK_ENTITY (item_security)
 LINK_ENTITY (item_sodacan)
-LINK_ENTITY (item_suit)
-LINK_ENTITY (item_thighpack)
 LINK_ENTITY (light)
 LINK_ENTITY (light_environment)
 LINK_ENTITY (light_spot)
 LINK_ENTITY (momentary_door)
 LINK_ENTITY (momentary_rot_button)
+LINK_ENTITY (monster_c4)
+LINK_ENTITY (monster_cine2_hvyweapons)
+LINK_ENTITY (monster_cine2_scientist)
+LINK_ENTITY (monster_cine2_slave)
+LINK_ENTITY (monster_cine3_barney)
+LINK_ENTITY (monster_cine3_scientist)
+LINK_ENTITY (monster_cine_barney)
+LINK_ENTITY (monster_cine_panther)
+LINK_ENTITY (monster_cine_scientist)
+LINK_ENTITY (monster_cockroach)
+LINK_ENTITY (monster_furniture)
 LINK_ENTITY (monster_hevsuit_dead)
 LINK_ENTITY (monster_mortar)
-LINK_ENTITY (monster_scientist)
+LINK_ENTITY (monster_osprey)
+LINK_ENTITY (monster_rat)
+LINK_ENTITY (monster_tentacle)
+LINK_ENTITY (monster_tentaclemaw)
+LINK_ENTITY (monstermaker)
 LINK_ENTITY (multi_manager)
 LINK_ENTITY (multisource)
+LINK_ENTITY (node_viewer)
+LINK_ENTITY (node_viewer_fly)
+LINK_ENTITY (node_viewer_human)
+LINK_ENTITY (node_viewer_large)
 LINK_ENTITY (path_corner)
 LINK_ENTITY (path_track)
 LINK_ENTITY (player)
 LINK_ENTITY (player_loadsaved)
 LINK_ENTITY (player_weaponstrip)
+LINK_ENTITY (scripted_sentence)
+LINK_ENTITY (scripted_sequence)
 LINK_ENTITY (soundent)
 LINK_ENTITY (spark_shower)
 LINK_ENTITY (speaker)
 LINK_ENTITY (target_cdaudio)
 LINK_ENTITY (test_effect)
+LINK_ENTITY (testhull)
 LINK_ENTITY (trigger)
 LINK_ENTITY (trigger_auto)
 LINK_ENTITY (trigger_autosave)
@@ -3365,32 +3268,26 @@ LINK_ENTITY (weapon_aug)
 LINK_ENTITY (weapon_awp)
 LINK_ENTITY (weapon_c4)
 LINK_ENTITY (weapon_deagle)
-LINK_ENTITY (weapon_elite)
 LINK_ENTITY (weapon_famas)
-LINK_ENTITY (weapon_fiveseven)
 LINK_ENTITY (weapon_flashbang)
-LINK_ENTITY (weapon_g3sg1)
 LINK_ENTITY (weapon_galil)
 LINK_ENTITY (weapon_glock18)
 LINK_ENTITY (weapon_hegrenade)
 LINK_ENTITY (weapon_knife)
-LINK_ENTITY (weapon_m249)
 LINK_ENTITY (weapon_m3)
 LINK_ENTITY (weapon_m4a1)
-LINK_ENTITY (weapon_mac10)
 LINK_ENTITY (weapon_mp5navy)
-LINK_ENTITY (weapon_p228)
-LINK_ENTITY (weapon_p90)
-LINK_ENTITY (weapon_scout)
-LINK_ENTITY (weapon_sg550)
 LINK_ENTITY (weapon_sg552)
-LINK_ENTITY (weapon_shield)
-LINK_ENTITY (weapon_shieldgun)
 LINK_ENTITY (weapon_smokegrenade)
-LINK_ENTITY (weapon_tmp)
-LINK_ENTITY (weapon_ump45)
 LINK_ENTITY (weapon_usp)
-LINK_ENTITY (weapon_xm1014)
 LINK_ENTITY (weaponbox)
 LINK_ENTITY (world_items)
 LINK_ENTITY (worldspawn)
+LINK_ENTITY (xen_hair)
+LINK_ENTITY (xen_hull)
+LINK_ENTITY (xen_plantlight)
+LINK_ENTITY (xen_spore_large)
+LINK_ENTITY (xen_spore_medium)
+LINK_ENTITY (xen_spore_small)
+LINK_ENTITY (xen_tree)
+LINK_ENTITY (xen_ttrigger)
